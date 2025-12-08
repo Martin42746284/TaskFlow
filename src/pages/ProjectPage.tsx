@@ -5,6 +5,7 @@ import { Header } from '@/components/Header';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CreateTicketDialog } from '@/components/CreateTicketDialog';
 import { TicketDetailDialog } from '@/components/TicketDetailDialog';
+import { TeamManagementDialog } from '@/components/TeamManagementDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { AvatarGroup } from '@/components/UserAvatar';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Plus, Settings, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Users } from 'lucide-react';
 import { ProjectStatus } from '@/types';
 
 const ProjectPage = () => {
@@ -37,6 +38,7 @@ const ProjectPage = () => {
     updateProject,
     deleteProject,
     canDeleteProject,
+    canManageMembers,
     currentUser,
     getUserRole,
   } = useAppStore();
@@ -44,6 +46,7 @@ const ProjectPage = () => {
   const project = getProjectById(id!);
   const [createTicketOpen, setCreateTicketOpen] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
 
   if (!project) {
     return (
@@ -102,13 +105,16 @@ const ProjectPage = () => {
             </div>
             <p className="text-muted-foreground mb-4">{project.description}</p>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+              <button
+                onClick={() => setTeamDialogOpen(true)}
+                className="flex items-center gap-2 hover:bg-accent/50 rounded-lg px-2 py-1 -ml-2 transition-colors"
+              >
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <AvatarGroup users={memberUsers} max={5} size="sm" />
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   {project.members.length} member{project.members.length !== 1 ? 's' : ''}
                 </span>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -123,6 +129,13 @@ const ProjectPage = () => {
                 <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
+
+            {canManageMembers(project.id) && (
+              <Button variant="outline" onClick={() => setTeamDialogOpen(true)}>
+                <Users className="h-4 w-4 mr-2" />
+                Team
+              </Button>
+            )}
 
             <Button onClick={() => setCreateTicketOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -178,6 +191,12 @@ const ProjectPage = () => {
       <TicketDetailDialog
         ticketId={selectedTicketId}
         onClose={() => setSelectedTicketId(null)}
+      />
+
+      <TeamManagementDialog
+        projectId={project.id}
+        open={teamDialogOpen}
+        onOpenChange={setTeamDialogOpen}
       />
     </div>
   );

@@ -30,6 +30,8 @@ interface AppState {
   deleteProject: (id: string) => void;
   addProjectMember: (projectId: string, userId: string, role: UserRole) => void;
   removeProjectMember: (projectId: string, userId: string) => void;
+  updateMemberRole: (projectId: string, userId: string, role: UserRole) => void;
+  canManageMembers: (projectId: string) => boolean;
   
   // Ticket actions
   addTicket: (projectId: string, name: string, description: string, estimationDate: Date) => void;
@@ -226,6 +228,27 @@ export const useAppStore = create<AppState>((set, get) => ({
           : p
       ),
     }));
+  },
+
+  updateMemberRole: (projectId, userId, role) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              members: p.members.map((m) =>
+                m.userId === userId ? { ...m, role } : m
+              ),
+            }
+          : p
+      ),
+    }));
+  },
+
+  canManageMembers: (projectId) => {
+    const { currentUser, getUserRole } = get();
+    const role = getUserRole(projectId, currentUser.id);
+    return role === 'owner' || role === 'admin';
   },
   
   addTicket: (projectId, name, description, estimationDate) => {
