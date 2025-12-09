@@ -5,6 +5,7 @@ import Login from '@/pages/Login';
 import Signup from '@/pages/Signup';
 import Index from '@/pages/Index';
 import ProjectPage from '@/pages/ProjectPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         {/* Routes publiques */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/profile" element={<ProfilePage />} />
         
         {/* Routes protégées */}
         <Route element={<ProtectedRoute />}>

@@ -1,5 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User } from '@/utils/api';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { User, getAvatarUrl } from '@/utils/api';
 import { cn } from '@/lib/utils';
 
 interface UserAvatarProps {
@@ -8,60 +8,85 @@ interface UserAvatarProps {
   className?: string;
 }
 
-const sizeClasses = {
-  sm: 'h-6 w-6 text-xs',
-  md: 'h-8 w-8 text-sm',
-  lg: 'h-10 w-10 text-base',
-};
-
 export function UserAvatar({ user, size = 'md', className }: UserAvatarProps) {
-  // Créer les initiales à partir de firstName et lastName
-  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`
-    .toUpperCase()
-    .slice(0, 2) || 'U';
+  const sizeClasses = {
+    sm: 'h-8 w-8 text-xs',
+    md: 'h-10 w-10 text-sm',
+    lg: 'h-12 w-12 text-base',
+  };
 
-  // Le nom complet pour l'attribut alt
-  const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Utilisateur';
+  const initials = user.firstName && user.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : 'U';
+
+  const avatarUrl = getAvatarUrl(user.avatar);
 
   return (
     <Avatar className={cn(sizeClasses[size], className)}>
-      <AvatarImage src={user.avatar} alt={fullName} />
-      <AvatarFallback className="bg-primary/10 text-primary font-medium">
-        {initials}
-      </AvatarFallback>
+      <AvatarImage 
+        src={avatarUrl} 
+        alt={`${user.firstName} ${user.lastName}`}
+      />
+      <AvatarFallback>{initials}</AvatarFallback>
     </Avatar>
   );
 }
 
+// Composant AvatarGroup pour afficher plusieurs avatars
 interface AvatarGroupProps {
   users: User[];
   max?: number;
   size?: 'sm' | 'md' | 'lg';
+  className?: string;
 }
 
-export function AvatarGroup({ users, max = 3, size = 'sm' }: AvatarGroupProps) {
-  const visibleUsers = users.slice(0, max);
+export function AvatarGroup({ users, max = 3, size = 'sm', className }: AvatarGroupProps) {
+  const sizeClasses = {
+    sm: 'h-8 w-8 text-xs',
+    md: 'h-10 w-10 text-sm',
+    lg: 'h-12 w-12 text-base',
+  };
+
+  const displayedUsers = users.slice(0, max);
   const remainingCount = users.length - max;
 
   return (
-    <div className="flex -space-x-2">
-      {visibleUsers.map((user, index) => (
-        <UserAvatar
-          key={user.id || index}
-          user={user}
-          size={size}
-          className="ring-2 ring-card"
-        />
-      ))}
+    <div className={cn('flex -space-x-2', className)}>
+      {displayedUsers.map((user, index) => {
+        const initials = user.firstName && user.lastName
+          ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+          : 'U';
+        
+        const avatarUrl = getAvatarUrl(user.avatar);
+
+        return (
+          <Avatar
+            key={user._id || user.id || index}
+            className={cn(
+              sizeClasses[size],
+              'border-2 border-background ring-1 ring-border'
+            )}
+          >
+            <AvatarImage 
+              src={avatarUrl} 
+              alt={`${user.firstName} ${user.lastName}`}
+            />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+        );
+      })}
+      
       {remainingCount > 0 && (
-        <div
+        <Avatar
           className={cn(
-            'flex items-center justify-center rounded-full bg-muted ring-2 ring-card',
-            sizeClasses[size]
+            sizeClasses[size],
+            'border-2 border-background bg-muted'
           )}
         >
-          <span className="text-muted-foreground">+{remainingCount}</span>
-        </div>
+          <AvatarFallback className="text-muted-foreground">
+            +{remainingCount}
+          </AvatarFallback>
+        </Avatar>
       )}
     </div>
   );

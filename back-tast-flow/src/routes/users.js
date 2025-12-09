@@ -3,17 +3,22 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middlewares/auth');
+const upload = require('../config/upload');
 
-// GET /api/users/profile - Obtenir le profil (protégé)
-router.get('/profile', authMiddleware, userController.getProfile);
+// Toutes les routes nécessitent une authentification
+router.use(authMiddleware);
 
-// PUT /api/users/profile - Modifier le profil (protégé)
-router.put('/profile', authMiddleware, userController.updateProfile);
+// Routes du profil
+router.get('/profile', userController.getProfile);
+router.put('/profile', userController.updateProfile);
+router.put('/password', userController.changePassword);
 
-// DELETE /api/users/delete - Supprimer le compte (protégé)
-router.delete('/delete', authMiddleware, userController.deleteAccount);
+// Routes avatar
+router.post('/avatar', upload.single('avatar'), userController.uploadAvatar);
+router.delete('/avatar', userController.deleteAvatar);
 
-// GET /api/users/ - Obtenir tous les utilisateurs (admin uniquement, protégé)
-router.get('/', authMiddleware, userController.getAllUsers);
+// Routes recherche
+router.get('/search', userController.searchUsers);
+router.get('/:id', userController.getUserById);
 
 module.exports = router;

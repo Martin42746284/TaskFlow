@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ArrowLeft, Plus, Trash2, Users, Pencil, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { projectService, Project, getCurrentUserId } from '@/utils/api';
+import { projectService, Project, getCurrentUserId, User } from '@/utils/api';
 
 const ProjectPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -199,12 +199,50 @@ const ProjectPage = () => {
     );
   }
 
-  // Extraire les utilisateurs membres (owner + admins + team)
-  const memberUsers = [
-    ...(typeof project.owner === 'object' ? [project.owner] : []),
-    ...(Array.isArray(project.admins) ? project.admins.filter(a => typeof a === 'object') : []),
-    ...(Array.isArray(project.team) ? project.team.filter(t => typeof t === 'object') : []),
-  ];
+  // Extraire les utilisateurs membres (owner + admins + team) avec gestion de doublons
+  const getMemberUsers = (): User[] => {
+    const users: User[] = [];
+    const userIds = new Set<string>();
+
+    // Ajouter le owner
+    if (typeof project.owner === 'object' && project.owner) {
+      const ownerId = project.owner._id || project.owner.id;
+      if (!userIds.has(ownerId)) {
+        users.push(project.owner);
+        userIds.add(ownerId);
+      }
+    }
+
+    // Ajouter les admins
+    if (Array.isArray(project.admins)) {
+      project.admins.forEach((admin) => {
+        if (typeof admin === 'object' && admin) {
+          const adminId = admin._id || admin.id;
+          if (!userIds.has(adminId)) {
+            users.push(admin);
+            userIds.add(adminId);
+          }
+        }
+      });
+    }
+
+    // Ajouter les membres de l'équipe
+    if (Array.isArray(project.team)) {
+      project.team.forEach((member) => {
+        if (typeof member === 'object' && member) {
+          const memberId = member._id || member.id;
+          if (!userIds.has(memberId)) {
+            users.push(member);
+            userIds.add(memberId);
+          }
+        }
+      });
+    }
+
+    return users;
+  };
+
+  const memberUsers = getMemberUsers();
 
   return (
     <div className="min-h-screen bg-background">
@@ -248,7 +286,9 @@ const ProjectPage = () => {
                 </Button>
               )}
             </div>
-            <p className="text-muted-foreground mb-4">{project.description}</p>
+            {project.description && (
+              <p className="text-muted-foreground mb-4">{project.description}</p>
+            )}
             <div className="flex items-center gap-4">
               <button
                 onClick={() => canManageTeam ? setTeamDialogOpen(true) : null}
@@ -256,6 +296,7 @@ const ProjectPage = () => {
                   canManageTeam ? 'hover:bg-accent/50 cursor-pointer' : 'cursor-default'
                 }`}
                 disabled={!canManageTeam}
+                title={canManageTeam ? 'Gérer l\'équipe' : 'Membres du projet'}
               >
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <AvatarGroup users={memberUsers} max={5} size="sm" />
@@ -303,7 +344,7 @@ const ProjectPage = () => {
             {canDeleteProject && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="icon" className="text-destructive">
+                  <Button variant="outline" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>

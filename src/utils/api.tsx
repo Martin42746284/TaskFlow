@@ -54,11 +54,20 @@ export interface Comment {
   updatedAt?: string;
 }
 
-// Configuration de l'instance Axios
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+// Configuration des URLs
+const getBaseUrls = () => {
+  const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  
+  return {
+    API_URL: `${envUrl}/api`,  // Pour les appels API : http://localhost:4000/api
+    STATIC_URL: envUrl,         // Pour les fichiers statiques : http://localhost:4000
+  };
+};
+
+const { API_URL, STATIC_URL } = getBaseUrls();
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -156,19 +165,61 @@ export const getCurrentUserId = (): string | null => {
 
 // ===== Services User =====
 export const userService = {
-  // Obtenir le profil
+  // Obtenir le profil de l'utilisateur connecté
   getProfile: async (): Promise<User> => {
     const response = await apiClient.get<User>('/users/profile');
     return response.data;
   },
 
   // Modifier le profil
-  updateProfile: async (data: Partial<User>): Promise<{ message: string; user: User }> => {
+  updateProfile: async (data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+  }): Promise<User> => {
     const response = await apiClient.put<{ message: string; user: User }>(
       '/users/profile',
       data
     );
+    return response.data.user;
+  },
+
+  // Changer le mot de passe
+  changePassword: async (data: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ message: string }> => {
+    const response = await apiClient.put<{ message: string }>(
+      '/users/password',
+      data
+    );
     return response.data;
+  },
+
+  // Upload avatar
+  uploadAvatar: async (file: File): Promise<User> => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await apiClient.post<{ message: string; user: User }>(
+      '/users/avatar',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.user;
+  },
+
+  // Supprimer avatar
+  deleteAvatar: async (): Promise<User> => {
+    const response = await apiClient.delete<{ message: string; user: User }>(
+      '/users/avatar'
+    );
+    return response.data.user;
   },
 
   // Obtenir un utilisateur par ID (pour les assignations)
@@ -176,6 +227,25 @@ export const userService = {
     const response = await apiClient.get<User>(`/users/${id}`);
     return response.data;
   },
+
+  // Rechercher des utilisateurs (pour ajouter des membres)
+  search: async (query: string): Promise<User[]> => {
+    const response = await apiClient.get<User[]>(`/users/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+  },
+};
+
+// ===== Helper pour obtenir l'URL complète de l'avatar =====
+export const getAvatarUrl = (avatar?: string): string | undefined => {
+  if (!avatar) return undefined;
+  if (avatar.startsWith('http')) return avatar; // URL complète déjà fournie
+  
+  // Construire l'URL complète avec STATIC_URL (sans /api)
+  const url = `${STATIC_URL}${avatar}`;
+  console.log('getAvatarUrl - Input:', avatar);
+  console.log('getAvatarUrl - STATIC_URL:', STATIC_URL);
+  console.log('getAvatarUrl - Output:', url);
+  return url;
 };
 
 // ===== Services Project =====

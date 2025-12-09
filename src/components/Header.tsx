@@ -1,8 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { userService, authService, User } from '@/utils/api';
-import { UserAvatar } from './UserAvatar';
-import { Button } from './ui/button';
+import { userService, authService, User, getAvatarUrl } from '@/utils/api';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,13 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { LayoutGrid, FolderKanban, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutGrid, FolderKanban, LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export function Header() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [avatarTimestamp, setAvatarTimestamp] = useState(Date.now());
 
   useEffect(() => {
     const loadUser = async () => {
@@ -29,6 +29,18 @@ export function Header() {
       }
     };
     loadUser();
+
+    // Écouter l'événement personnalisé pour recharger le profil
+    const handleProfileUpdate = () => {
+      loadUser();
+      setAvatarTimestamp(Date.now()); // Mettre à jour le timestamp
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -41,6 +53,13 @@ export function Header() {
   };
 
   if (!currentUser) return null;
+
+  const initials = `${currentUser.firstName[0]}${currentUser.lastName[0]}`.toUpperCase();
+  
+  // Ajouter le timestamp à l'URL de l'avatar
+  const avatarUrl = currentUser.avatar 
+    ? `${getAvatarUrl(currentUser.avatar)}?t=${avatarTimestamp}` 
+    : undefined;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -65,32 +84,44 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium">
-              {currentUser.firstName} {currentUser.lastName}
-            </p>
-            <p className="text-xs text-muted-foreground">{currentUser.email}</p>
-          </div>
-          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="focus:outline-none focus:ring-2 focus:ring-primary rounded-full">
-                <UserAvatar user={currentUser} size="md" />
+              <button className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary transition-all">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage 
+                    src={avatarUrl} 
+                    alt={`${currentUser.firstName} ${currentUser.lastName}`}
+                  />
+                  <AvatarFallback className="text-sm">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="text-left hidden sm:block">
+                  <p className="text-sm font-medium leading-none">
+                    {currentUser.firstName} {currentUser.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {currentUser.email}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex items-center gap-2">
-                <UserIcon className="h-4 w-4" />
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
                     {currentUser.firstName} {currentUser.lastName}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
                     {currentUser.email}
-                  </span>
+                  </p>
                 </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                  <UserIcon className="h-4 w-4" />
+                  <span>Mon profil</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
