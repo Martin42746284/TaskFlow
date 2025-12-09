@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppStore } from '@/store/appStore';
+import { projectService } from '@/utils/api';
 import {
   Dialog,
   DialogContent,
@@ -11,17 +11,23 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 interface CreateProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onProjectCreated?: () => void | Promise<void>; // Ajouter ce prop
 }
 
-export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
-  const { addProject } = useAppStore();
+export function CreateProjectDialog({ 
+  open, 
+  onOpenChange,
+  onProjectCreated // Ajouter ici
+}: CreateProjectDialogProps) {
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; description?: string }>({});
 
   const validate = () => {
@@ -40,32 +46,56 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) {
-      addProject(name.trim(), description.trim());
+
+    if (!validate()) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await projectService.create({
+        name: name.trim(),
+        description: description.trim(),
+        status: 'Actif',
+      });
+
       toast({
         title: 'Projet créé',
         description: `Le projet "${name.trim()}" a été créé avec succès.`,
       });
-      setName('');
-      setDescription('');
-      setErrors({});
-      onOpenChange(false);
-    }
-  };
 
-  const handleClose = (isOpen: boolean) => {
-    if (!isOpen) {
+      // Réinitialiser le formulaire
       setName('');
       setDescription('');
       setErrors({});
+      
+      // Fermer le dialog
+      onOpenChange(false);
+
+      // Appeler le callback pour rafraîchir la liste
+      if (onProjectCreated) {
+        await onProjectCreated(); // Ajouter cette ligne
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Erreur lors de la création du projet';
+      
+      toast({
+        title: 'Erreur',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+
+      console.error('Erreur de création du projet:', error);
+    } finally {
+      setIsLoading(false);
     }
-    onOpenChange(isOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Créer un nouveau projet</DialogTitle>
@@ -79,11 +109,13 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={errors.name ? 'border-destructive' : ''}
+              disabled={isLoading}
             />
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name}</p>
             )}
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="description">Description *</Label>
             <Textarea
@@ -93,16 +125,26 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className={errors.description ? 'border-destructive' : ''}
+              disabled={isLoading}
             />
             {errors.description && (
               <p className="text-sm text-destructive">{errors.description}</p>
             )}
           </div>
+
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
               Annuler
             </Button>
-            <Button type="submit">Créer le projet</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? 'Création...' : 'Créer'}
+            </Button>
           </div>
         </form>
       </DialogContent>

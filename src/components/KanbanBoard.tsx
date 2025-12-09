@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { TicketStatus } from '@/types';
 import { KanbanColumn } from './KanbanColumn';
-import { useAppStore } from '@/store/appStore';
 import { DndContext, DragEndEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { ticketService } from '@/utils/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface KanbanBoardProps {
   projectId: string;
@@ -10,10 +10,21 @@ interface KanbanBoardProps {
   onAddTicket: () => void;
 }
 
-const statuses: TicketStatus[] = ['todo', 'in_progress', 'validation', 'done'];
+type TicketStatus = 'A faire' | 'En cours' | 'En validation' | 'Terminé';
 
+const statuses: TicketStatus[] = ['A faire', 'En cours', 'En validation', 'Terminé'];
+
+const statusLabels: Record<TicketStatus, string> = {
+  'A faire': 'À faire',
+  'En cours': 'En cours',
+  'En validation': 'En validation',
+  'Terminé': 'Terminé',
+};
+
+// ⚠️ IMPORTANT: Utiliser "export function" au lieu de "export default"
 export function KanbanBoard({ projectId, onTicketClick, onAddTicket }: KanbanBoardProps) {
-  const { updateTicket } = useAppStore();
+  const { toast } = useToast();
+  const [isDragging, setIsDragging] = useState(false);
 
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: {
@@ -30,17 +41,50 @@ export function KanbanBoard({ projectId, onTicketClick, onAddTicket }: KanbanBoa
 
   const sensors = useSensors(mouseSensor, touchSensor);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setIsDragging(false);
     
     if (over && active.id !== over.id) {
+      const ticketId = active.id as string;
       const newStatus = over.id as TicketStatus;
-      updateTicket(active.id as string, { status: newStatus });
+
+      try {
+        await ticketService.update(ticketId, { status: newStatus });
+        
+        toast({
+          title: 'Ticket déplacé',
+          description: `Le ticket a été déplacé vers "${statusLabels[newStatus]}".`,
+        });
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || 'Impossible de déplacer le ticket';
+        
+        toast({
+          title: 'Erreur',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+
+        console.error('Erreur de mise à jour du ticket:', error);
+      }
     }
   };
 
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
+  const handleDragCancel = () => {
+    setIsDragging(false);
+  };
+
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext 
+      sensors={sensors} 
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
       <div className="flex gap-6 overflow-x-auto pb-4 px-1">
         {statuses.map((status) => (
           <KanbanColumn
@@ -49,6 +93,7 @@ export function KanbanBoard({ projectId, onTicketClick, onAddTicket }: KanbanBoa
             projectId={projectId}
             onTicketClick={onTicketClick}
             onAddTicket={onAddTicket}
+            isDragging={isDragging}
           />
         ))}
       </div>

@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User } from '@/types';
+import { User } from '@/utils/api';
 import { cn } from '@/lib/utils';
 
 interface UserAvatarProps {
@@ -15,16 +15,17 @@ const sizeClasses = {
 };
 
 export function UserAvatar({ user, size = 'md', className }: UserAvatarProps) {
-  const initials = user.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
+  // Créer les initiales à partir de firstName et lastName
+  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, 2) || 'U';
+
+  // Le nom complet pour l'attribut alt
+  const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Utilisateur';
 
   return (
     <Avatar className={cn(sizeClasses[size], className)}>
-      <AvatarImage src={user.avatar} alt={user.name} />
+      <AvatarImage src={user.avatar} alt={fullName} />
       <AvatarFallback className="bg-primary/10 text-primary font-medium">
         {initials}
       </AvatarFallback>
@@ -44,9 +45,9 @@ export function AvatarGroup({ users, max = 3, size = 'sm' }: AvatarGroupProps) {
 
   return (
     <div className="flex -space-x-2">
-      {visibleUsers.map((user) => (
+      {visibleUsers.map((user, index) => (
         <UserAvatar
-          key={user.id}
+          key={user.id || index}
           user={user}
           size={size}
           className="ring-2 ring-card"

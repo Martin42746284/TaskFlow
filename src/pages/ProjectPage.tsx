@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useAppStore } from '@/store/appStore';
 import { Header } from '@/components/Header';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CreateTicketDialog } from '@/components/CreateTicketDialog';
@@ -28,30 +27,103 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Plus, Trash2, Users, Pencil } from 'lucide-react';
-import { ProjectStatus } from '@/types';
+import { ArrowLeft, Plus, Trash2, Users, Pencil, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { projectService, Project } from '@/utils/api';
 
 const ProjectPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const {
-    getProjectById,
-    updateProject,
-    deleteProject,
-    canDeleteProject,
-    canManageMembers,
-    currentUser,
-    getUserRole,
-  } = useAppStore();
-
-  const project = getProjectById(id!);
+  
+  const [project, setProject] = useState<Project | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [createTicketOpen, setCreateTicketOpen] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
 
+  // Charger le projet depuis MongoDB
+  const loadProject = async () => {
+    if (!id) return;
+    
+    try {
+      setIsLoading(true);
+      const data = await projectService.getById(id);
+      setProject(data);
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de charger le projet',
+        variant: 'destructive',
+      });
+      console.error('Erreur de chargement du projet:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProject();
+  }, [id]);
+
+  // Gestion du changement de statut
+  const handleStatusChange = async (status: 'Actif' | 'Inactif' | 'Archivé') => {
+    if (!project) return;
+
+    try {
+      await projectService.update(project._id, { status });
+      setProject({ ...project, status });
+      toast({
+        title: 'Statut modifié',
+        description: `Le projet est maintenant "${status}".`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de modifier le statut',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Gestion de la suppression
+  const handleDelete = async () => {
+    if (!project) return;
+
+    try {
+      await projectService.delete(project._id);
+      toast({
+        title: 'Projet supprimé',
+        description: `Le projet "${project.name}" a été supprimé.`,
+        variant: 'destructive',
+      });
+      navigate('/');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Impossible de supprimer le projet';
+      toast({
+        title: 'Erreur',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // État de chargement
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8">
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Projet introuvable
   if (!project) {
     return (
       <div className="min-h-screen bg-background">
@@ -74,26 +146,12 @@ const ProjectPage = () => {
     );
   }
 
-  const userRole = getUserRole(project.id, currentUser.id);
-  const memberUsers = project.members.map((m) => m.user);
-
-  const handleStatusChange = (status: ProjectStatus) => {
-    updateProject(project.id, { status });
-    toast({
-      title: 'Statut modifié',
-      description: `Le projet est maintenant "${status === 'active' ? 'Actif' : status === 'inactive' ? 'Inactif' : 'Archivé'}".`,
-    });
-  };
-
-  const handleDelete = () => {
-    deleteProject(project.id);
-    toast({
-      title: 'Projet supprimé',
-      description: `Le projet "${project.name}" a été supprimé.`,
-      variant: 'destructive',
-    });
-    navigate('/');
-  };
+  // Extraire les utilisateurs membres (owner + admins + team)
+  const memberUsers = [
+    ...(typeof project.owner === 'object' ? [project.owner] : []),
+    ...(Array.isArray(project.admins) ? project.admins.filter(a => typeof a === 'object') : []),
+    ...(Array.isArray(project.team) ? project.team.filter(t => typeof t === 'object') : []),
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -133,7 +191,7 @@ const ProjectPage = () => {
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <AvatarGroup users={memberUsers} max={5} size="sm" />
                 <span className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  {project.members.length} membre{project.members.length !== 1 ? 's' : ''}
+                  {memberUsers.length} membre{memberUsers.length !== 1 ? 's' : ''}
                 </span>
               </button>
             </div>
@@ -145,58 +203,54 @@ const ProjectPage = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">Actif</SelectItem>
-                <SelectItem value="inactive">Inactif</SelectItem>
-                <SelectItem value="archived">Archivé</SelectItem>
+                <SelectItem value="Actif">Actif</SelectItem>
+                <SelectItem value="Inactif">Inactif</SelectItem>
+                <SelectItem value="Archivé">Archivé</SelectItem>
               </SelectContent>
             </Select>
 
-            {canManageMembers(project.id) && (
-              <Button variant="outline" onClick={() => setTeamDialogOpen(true)}>
-                <Users className="h-4 w-4 mr-2" />
-                Équipe
-              </Button>
-            )}
+            <Button variant="outline" onClick={() => setTeamDialogOpen(true)}>
+              <Users className="h-4 w-4 mr-2" />
+              Équipe
+            </Button>
 
             <Button onClick={() => setCreateTicketOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Ajouter un ticket
             </Button>
 
-            {canDeleteProject(project.id) && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="icon" className="text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Supprimer le projet</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Êtes-vous sûr de vouloir supprimer "{project.name}" ? Cette action est
-                      irréversible et supprimera tous les tickets associés.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDelete}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Supprimer
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="icon" className="text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Supprimer le projet</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Êtes-vous sûr de vouloir supprimer "{project.name}" ? Cette action est
+                    irréversible et supprimera tous les tickets associés.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Supprimer
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
         {/* Kanban Board */}
         <div className="border border-border/50 rounded-xl bg-card/50 p-6">
           <KanbanBoard
-            projectId={project.id}
+            projectId={project._id}
             onTicketClick={setSelectedTicketId}
             onAddTicket={() => setCreateTicketOpen(true)}
           />
@@ -206,7 +260,8 @@ const ProjectPage = () => {
       <CreateTicketDialog
         open={createTicketOpen}
         onOpenChange={setCreateTicketOpen}
-        projectId={project.id}
+        projectId={project._id}
+        onTicketCreated={loadProject}
       />
 
       <TicketDetailDialog
@@ -215,15 +270,17 @@ const ProjectPage = () => {
       />
 
       <TeamManagementDialog
-        projectId={project.id}
+        projectId={project._id}
         open={teamDialogOpen}
         onOpenChange={setTeamDialogOpen}
+        onMembersUpdated={loadProject}
       />
 
       <EditProjectDialog
         project={project}
         open={editProjectOpen}
         onOpenChange={setEditProjectOpen}
+        onProjectUpdated={loadProject}
       />
     </div>
   );
