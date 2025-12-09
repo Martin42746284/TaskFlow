@@ -9,7 +9,7 @@ const userSchema = new Schema(
     phone:     { type: String, required: true, trim: true },
     email:     { type: String, required: true, unique: true, lowercase: true, trim: true },
     password:  { type: String, required: true },
-    avatar:    { type: String }, // hashé
+    avatar:    { type: String },
   },
   { timestamps: true }
 );
