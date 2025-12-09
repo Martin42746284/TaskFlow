@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/appStore';
+import { Project } from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -12,17 +13,26 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
-interface CreateProjectDialogProps {
+interface EditProjectDialogProps {
+  project: Project | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
-  const { addProject } = useAppStore();
+export function EditProjectDialog({ project, open, onOpenChange }: EditProjectDialogProps) {
+  const { updateProject } = useAppStore();
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<{ name?: string; description?: string }>({});
+
+  useEffect(() => {
+    if (project) {
+      setName(project.name);
+      setDescription(project.description);
+      setErrors({});
+    }
+  }, [project]);
 
   const validate = () => {
     const newErrors: { name?: string; description?: string } = {};
@@ -42,39 +52,31 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!project) return;
+
     if (validate()) {
-      addProject(name.trim(), description.trim());
+      updateProject(project.id, { name: name.trim(), description: description.trim() });
       toast({
-        title: 'Projet créé',
-        description: `Le projet "${name.trim()}" a été créé avec succès.`,
+        title: 'Projet modifié',
+        description: `Le projet "${name.trim()}" a été mis à jour avec succès.`,
       });
-      setName('');
-      setDescription('');
-      setErrors({});
       onOpenChange(false);
     }
   };
 
-  const handleClose = (isOpen: boolean) => {
-    if (!isOpen) {
-      setName('');
-      setDescription('');
-      setErrors({});
-    }
-    onOpenChange(isOpen);
-  };
+  if (!project) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Créer un nouveau projet</DialogTitle>
+          <DialogTitle>Modifier le projet</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nom du projet *</Label>
+            <Label htmlFor="edit-name">Nom du projet *</Label>
             <Input
-              id="name"
+              id="edit-name"
               placeholder="Entrez le nom du projet..."
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -85,9 +87,9 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="edit-description">Description *</Label>
             <Textarea
-              id="description"
+              id="edit-description"
               placeholder="Décrivez votre projet..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -99,10 +101,10 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             )}
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button type="submit">Créer le projet</Button>
+            <Button type="submit">Enregistrer</Button>
           </div>
         </form>
       </DialogContent>

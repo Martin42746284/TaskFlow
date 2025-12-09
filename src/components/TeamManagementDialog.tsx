@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Crown, Shield, Users, UserPlus, X, Search } from 'lucide-react';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 
 interface TeamManagementDialogProps {
   projectId: string;
@@ -28,9 +28,9 @@ interface TeamManagementDialogProps {
 }
 
 const roleConfig: Record<UserRole, { label: string; icon: typeof Crown; color: string }> = {
-  owner: { label: 'Owner', icon: Crown, color: 'text-yellow-500' },
-  admin: { label: 'Admin', icon: Shield, color: 'text-blue-500' },
-  team: { label: 'Team', icon: Users, color: 'text-muted-foreground' },
+  owner: { label: 'Propriétaire', icon: Crown, color: 'text-yellow-500' },
+  admin: { label: 'Administrateur', icon: Shield, color: 'text-blue-500' },
+  team: { label: 'Équipe', icon: Users, color: 'text-muted-foreground' },
 };
 
 export const TeamManagementDialog = ({
@@ -48,6 +48,7 @@ export const TeamManagementDialog = ({
     updateMemberRole,
   } = useAppStore();
 
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('team');
@@ -78,19 +79,30 @@ export const TeamManagementDialog = ({
 
   const handleAddMember = () => {
     if (!selectedUserId) {
-      toast.error('Please select a user');
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez sélectionner un utilisateur',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Owners can add admins or team, admins can only add team
     if (selectedRole === 'admin' && !isOwner) {
-      toast.error('Only project owners can add administrators');
+      toast({
+        title: 'Erreur',
+        description: 'Seul le propriétaire peut ajouter des administrateurs',
+        variant: 'destructive',
+      });
       return;
     }
 
     addProjectMember(projectId, selectedUserId, selectedRole);
     const user = users.find((u) => u.id === selectedUserId);
-    toast.success(`${user?.name} has been added to the project`);
+    toast({
+      title: 'Membre ajouté',
+      description: `${user?.name} a été ajouté au projet.`,
+    });
     setSelectedUserId('');
     setSelectedRole('team');
     setSearchQuery('');
@@ -101,18 +113,29 @@ export const TeamManagementDialog = ({
     
     // Can't remove the owner
     if (memberRole === 'owner') {
-      toast.error('Cannot remove the project owner');
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de retirer le propriétaire du projet',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Only owner can remove admins
     if (memberRole === 'admin' && !isOwner) {
-      toast.error('Only project owners can remove administrators');
+      toast({
+        title: 'Erreur',
+        description: 'Seul le propriétaire peut retirer des administrateurs',
+        variant: 'destructive',
+      });
       return;
     }
 
     removeProjectMember(projectId, userId);
-    toast.success(`${userName} has been removed from the project`);
+    toast({
+      title: 'Membre retiré',
+      description: `${userName} a été retiré du projet.`,
+    });
   };
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
@@ -120,19 +143,30 @@ export const TeamManagementDialog = ({
 
     // Can't change owner role
     if (memberRole === 'owner') {
-      toast.error('Cannot change the owner role');
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de modifier le rôle du propriétaire',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Only owner can promote to admin or demote admins
     if ((newRole === 'admin' || memberRole === 'admin') && !isOwner) {
-      toast.error('Only project owners can manage administrator roles');
+      toast({
+        title: 'Erreur',
+        description: 'Seul le propriétaire peut gérer les rôles administrateurs',
+        variant: 'destructive',
+      });
       return;
     }
 
     updateMemberRole(projectId, userId, newRole);
     const user = project.members.find((m) => m.userId === userId)?.user;
-    toast.success(`${user?.name}'s role has been updated to ${roleConfig[newRole].label}`);
+    toast({
+      title: 'Rôle modifié',
+      description: `Le rôle de ${user?.name} est maintenant ${roleConfig[newRole].label}.`,
+    });
   };
 
   const assignableRoles = getAssignableRoles();
@@ -143,7 +177,7 @@ export const TeamManagementDialog = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Team Management
+            Gestion de l'équipe
           </DialogTitle>
         </DialogHeader>
 
@@ -153,13 +187,13 @@ export const TeamManagementDialog = ({
             <div className="space-y-3">
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <UserPlus className="h-4 w-4" />
-                Add Team Member
+                Ajouter un membre
               </h3>
               <div className="flex gap-2">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search users..."
+                    placeholder="Rechercher des utilisateurs..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
@@ -192,7 +226,7 @@ export const TeamManagementDialog = ({
 
               {searchQuery && availableUsers.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-2">
-                  No users found
+                  Aucun utilisateur trouvé
                 </p>
               )}
 
@@ -225,7 +259,7 @@ export const TeamManagementDialog = ({
                   className="flex-1"
                 >
                   <UserPlus className="h-4 w-4 mr-2" />
-                  Add Member
+                  Ajouter
                 </Button>
               </div>
             </div>
@@ -234,7 +268,7 @@ export const TeamManagementDialog = ({
           {/* Current Members */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium">
-              Current Members ({project.members.length})
+              Membres actuels ({project.members.length})
             </h3>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {project.members.map((member) => {
@@ -262,7 +296,7 @@ export const TeamManagementDialog = ({
                           {member.user.name}
                           {member.userId === currentUser.id && (
                             <Badge variant="outline" className="text-xs">
-                              You
+                              Vous
                             </Badge>
                           )}
                         </p>
@@ -329,18 +363,18 @@ export const TeamManagementDialog = ({
 
           {/* Role Permissions Info */}
           <div className="text-xs text-muted-foreground space-y-1 p-3 rounded-lg bg-muted/30">
-            <p className="font-medium mb-2">Role Permissions:</p>
+            <p className="font-medium mb-2">Permissions des rôles :</p>
             <p>
               <Crown className="h-3 w-3 inline mr-1 text-yellow-500" />
-              <strong>Owner:</strong> Full control, can add admins and delete project
+              <strong>Propriétaire :</strong> Contrôle total, peut ajouter des admins et supprimer le projet
             </p>
             <p>
               <Shield className="h-3 w-3 inline mr-1 text-blue-500" />
-              <strong>Admin:</strong> Can manage team members and tickets
+              <strong>Administrateur :</strong> Peut gérer les membres et les tickets
             </p>
             <p>
               <Users className="h-3 w-3 inline mr-1" />
-              <strong>Team:</strong> Can create and work on tickets
+              <strong>Équipe :</strong> Peut créer et travailler sur les tickets
             </p>
           </div>
         </div>
