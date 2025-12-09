@@ -29,12 +29,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ArrowLeft, Plus, Trash2, Users, Pencil, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { projectService, Project } from '@/utils/api';
+import { projectService, Project, getCurrentUserId } from '@/utils/api';
 
 const ProjectPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const currentUserId = getCurrentUserId();
   
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +43,7 @@ const ProjectPage = () => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
+  const [userRole, setUserRole] = useState<'owner' | 'admin' | 'team' | null>(null);
 
   // Charger le projet depuis MongoDB
   const loadProject = async () => {
@@ -51,6 +53,33 @@ const ProjectPage = () => {
       setIsLoading(true);
       const data = await projectService.getById(id);
       setProject(data);
+
+      // Déterminer le rôle de l'utilisateur
+      const ownerId = typeof data.owner === 'object' 
+        ? (data.owner._id || data.owner.id)
+        : data.owner;
+
+      if (currentUserId === ownerId) {
+        setUserRole('owner');
+        console.log('User role: OWNER');
+      } else if (Array.isArray(data.admins) && 
+                 data.admins.some((admin: any) => {
+                   const adminId = typeof admin === 'object' ? (admin._id || admin.id) : admin;
+                   return adminId === currentUserId;
+                 })) {
+        setUserRole('admin');
+        console.log('User role: ADMIN');
+      } else if (Array.isArray(data.team) && 
+                 data.team.some((member: any) => {
+                   const memberId = typeof member === 'object' ? (member._id || member.id) : member;
+                   return memberId === currentUserId;
+                 })) {
+        setUserRole('team');
+        console.log('User role: TEAM');
+      } else {
+        setUserRole(null);
+        console.log('User role: NONE');
+      }
     } catch (error: any) {
       toast({
         title: 'Erreur',
@@ -58,6 +87,7 @@ const ProjectPage = () => {
         variant: 'destructive',
       });
       console.error('Erreur de chargement du projet:', error);
+      navigate('/');
     } finally {
       setIsLoading(false);
     }
@@ -67,9 +97,24 @@ const ProjectPage = () => {
     loadProject();
   }, [id]);
 
-  // Gestion du changement de statut
+  // Calculer les permissions - SEULEMENT LE PROPRIÉTAIRE
+  const isOwner = userRole === 'owner';
+  const canEditProject = isOwner;
+  const canDeleteProject = isOwner;
+  const canManageTeam = isOwner;
+  const canCreateTicket = isOwner;
+  const canChangeStatus = isOwner;
+
+  // Gestion du changement de statut (SEULEMENT LE PROPRIÉTAIRE)
   const handleStatusChange = async (status: 'Actif' | 'Inactif' | 'Archivé') => {
-    if (!project) return;
+    if (!project || !canChangeStatus) {
+      toast({
+        title: 'Accès refusé',
+        description: 'Seul le propriétaire peut modifier le statut du projet',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
       await projectService.update(project._id, { status });
@@ -79,17 +124,25 @@ const ProjectPage = () => {
         description: `Le projet est maintenant "${status}".`,
       });
     } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Impossible de modifier le statut';
       toast({
         title: 'Erreur',
-        description: 'Impossible de modifier le statut',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
   };
 
-  // Gestion de la suppression
+  // Gestion de la suppression (SEULEMENT LE PROPRIÉTAIRE)
   const handleDelete = async () => {
-    if (!project) return;
+    if (!project || !canDeleteProject) {
+      toast({
+        title: 'Accès refusé',
+        description: 'Seul le propriétaire peut supprimer le projet',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
       await projectService.delete(project._id);
@@ -132,7 +185,7 @@ const ProjectPage = () => {
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold mb-2">Projet introuvable</h2>
             <p className="text-muted-foreground mb-4">
-              Le projet que vous recherchez n'existe pas.
+              Le projet que vous recherchez n'existe pas ou vous n'y avez pas accès.
             </p>
             <Link to="/">
               <Button variant="outline">
@@ -167,30 +220,48 @@ const ProjectPage = () => {
           Retour aux projets
         </Link>
 
+        {/* Message d'information pour les non-propriétaires */}
+        {!isOwner && (
+          <div className="bg-muted p-4 rounded-lg mb-6 border border-border">
+            <p className="text-sm text-muted-foreground">
+              Vous êtes membre de ce projet en tant que <strong>{userRole === 'admin' ? 'Administrateur' : 'Membre de l\'équipe'}</strong>.
+              Seul le propriétaire peut créer et gérer les tickets, ainsi que modifier le projet.
+            </p>
+          </div>
+        )}
+
         {/* Project Header */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-2xl font-bold">{project.name}</h1>
               <StatusBadge status={project.status} type="project" />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setEditProjectOpen(true)}
-                className="h-8 w-8"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
+              {canEditProject && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setEditProjectOpen(true)}
+                  className="h-8 w-8"
+                  title="Modifier le projet"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <p className="text-muted-foreground mb-4">{project.description}</p>
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setTeamDialogOpen(true)}
-                className="flex items-center gap-2 hover:bg-accent/50 rounded-lg px-2 py-1 -ml-2 transition-colors"
+                onClick={() => canManageTeam ? setTeamDialogOpen(true) : null}
+                className={`flex items-center gap-2 rounded-lg px-2 py-1 -ml-2 transition-colors ${
+                  canManageTeam ? 'hover:bg-accent/50 cursor-pointer' : 'cursor-default'
+                }`}
+                disabled={!canManageTeam}
               >
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <AvatarGroup users={memberUsers} max={5} size="sm" />
-                <span className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <span className={`text-sm text-muted-foreground transition-colors ${
+                  canManageTeam ? 'hover:text-foreground' : ''
+                }`}>
                   {memberUsers.length} membre{memberUsers.length !== 1 ? 's' : ''}
                 </span>
               </button>
@@ -198,52 +269,64 @@ const ProjectPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Select value={project.status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Actif">Actif</SelectItem>
-                <SelectItem value="Inactif">Inactif</SelectItem>
-                <SelectItem value="Archivé">Archivé</SelectItem>
-              </SelectContent>
-            </Select>
+            {canChangeStatus ? (
+              <Select value={project.status} onValueChange={handleStatusChange}>
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Actif">Actif</SelectItem>
+                  <SelectItem value="Inactif">Inactif</SelectItem>
+                  <SelectItem value="Archivé">Archivé</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="w-36 px-3 py-2 border border-border rounded-md bg-muted text-sm">
+                {project.status}
+              </div>
+            )}
 
-            <Button variant="outline" onClick={() => setTeamDialogOpen(true)}>
-              <Users className="h-4 w-4 mr-2" />
-              Équipe
-            </Button>
+            {canManageTeam && (
+              <Button variant="outline" onClick={() => setTeamDialogOpen(true)}>
+                <Users className="h-4 w-4 mr-2" />
+                Équipe
+              </Button>
+            )}
 
-            <Button onClick={() => setCreateTicketOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter un ticket
-            </Button>
+            {canCreateTicket && (
+              <Button onClick={() => setCreateTicketOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter un ticket
+              </Button>
+            )}
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="icon" className="text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Supprimer le projet</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Êtes-vous sûr de vouloir supprimer "{project.name}" ? Cette action est
-                    irréversible et supprimera tous les tickets associés.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Annuler</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Supprimer
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {canDeleteProject && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Supprimer le projet</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Êtes-vous sûr de vouloir supprimer "{project.name}" ? Cette action est
+                      irréversible et supprimera tous les tickets associés.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Supprimer
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
 
@@ -252,36 +335,42 @@ const ProjectPage = () => {
           <KanbanBoard
             projectId={project._id}
             onTicketClick={setSelectedTicketId}
-            onAddTicket={() => setCreateTicketOpen(true)}
+            onAddTicket={canCreateTicket ? () => setCreateTicketOpen(true) : undefined}
           />
         </div>
       </main>
 
-      <CreateTicketDialog
-        open={createTicketOpen}
-        onOpenChange={setCreateTicketOpen}
-        projectId={project._id}
-        onTicketCreated={loadProject}
-      />
+      {canCreateTicket && (
+        <CreateTicketDialog
+          open={createTicketOpen}
+          onOpenChange={setCreateTicketOpen}
+          projectId={project._id}
+          onTicketCreated={loadProject}
+        />
+      )}
 
       <TicketDetailDialog
         ticketId={selectedTicketId}
         onClose={() => setSelectedTicketId(null)}
       />
 
-      <TeamManagementDialog
-        projectId={project._id}
-        open={teamDialogOpen}
-        onOpenChange={setTeamDialogOpen}
-        onMembersUpdated={loadProject}
-      />
+      {canManageTeam && (
+        <TeamManagementDialog
+          projectId={project._id}
+          open={teamDialogOpen}
+          onOpenChange={setTeamDialogOpen}
+          onMembersUpdated={loadProject}
+        />
+      )}
 
-      <EditProjectDialog
-        project={project}
-        open={editProjectOpen}
-        onOpenChange={setEditProjectOpen}
-        onProjectUpdated={loadProject}
-      />
+      {canEditProject && (
+        <EditProjectDialog
+          project={project}
+          open={editProjectOpen}
+          onOpenChange={setEditProjectOpen}
+          onProjectUpdated={loadProject}
+        />
+      )}
     </div>
   );
 };

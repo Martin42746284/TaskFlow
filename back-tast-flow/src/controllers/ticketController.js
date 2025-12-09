@@ -32,7 +32,12 @@ exports.createTicket = async (req, res) => {
       createdBy: req.userId,
     });
 
-    res.status(201).json({ message: 'Ticket créé', ticket });
+    const populatedTicket = await Ticket.findById(ticket._id)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('project', 'name');
+
+    res.status(201).json({ message: 'Ticket créé', ticket: populatedTicket });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
@@ -43,7 +48,8 @@ exports.getTicketsByProject = async (req, res) => {
   try {
     const tickets = await Ticket.find({ project: req.params.projectId })
       .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email');
+      .populate('createdBy', 'firstName lastName email')
+      .populate('project', 'name');
 
     res.json(tickets);
   } catch (error) {
@@ -72,7 +78,7 @@ exports.getTicketById = async (req, res) => {
 // Modifier un ticket
 exports.updateTicket = async (req, res) => {
   try {
-    const { title, description, status, estimationDate, assignedTo } = req.body;
+    const { title, description, status, estimationDate } = req.body;
 
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) {
@@ -89,21 +95,26 @@ exports.updateTicket = async (req, res) => {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
-    ticket.title = title || ticket.title;
-    ticket.description = description || ticket.description;
-    ticket.status = status || ticket.status;
-    ticket.estimationDate = estimationDate || ticket.estimationDate;
-    if (assignedTo) ticket.assignedTo = assignedTo;
+    // Mettre à jour seulement les champs fournis
+    if (title !== undefined) ticket.title = title;
+    if (description !== undefined) ticket.description = description;
+    if (status !== undefined) ticket.status = status;
+    if (estimationDate !== undefined) ticket.estimationDate = estimationDate;
 
     await ticket.save();
 
-    res.json({ message: 'Ticket mis à jour', ticket });
+    const updatedTicket = await Ticket.findById(ticket._id)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('project', 'name');
+
+    res.json({ message: 'Ticket mis à jour', ticket: updatedTicket });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
 
-// Supprimer un ticket (seul le créateur)
+// Supprimer un ticket (seul le créateur ou owner/admin du projet)
 exports.deleteTicket = async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id);
@@ -111,9 +122,15 @@ exports.deleteTicket = async (req, res) => {
       return res.status(404).json({ message: 'Ticket non trouvé' });
     }
 
-    // Seul le créateur peut supprimer
-    if (!ticket.createdBy.equals(req.userId)) {
-      return res.status(403).json({ message: 'Seul le créateur peut supprimer ce ticket' });
+    const project = await Project.findById(ticket.project);
+    
+    // Seul le créateur, le owner ou un admin peut supprimer
+    const canDelete = ticket.createdBy.equals(req.userId) ||
+      project.owner.equals(req.userId) ||
+      project.admins.includes(req.userId);
+
+    if (!canDelete) {
+      return res.status(403).json({ message: 'Accès refusé' });
     }
 
     await Ticket.findByIdAndDelete(req.params.id);
@@ -124,33 +141,165 @@ exports.deleteTicket = async (req, res) => {
   }
 };
 
-// Assigner des utilisateurs à un ticket
-exports.assignUsersToTicket = async (req, res) => {
+// Assigner plusieurs utilisateurs à un ticket
+exports.assignUserToTicket = async (req, res) => {
   try {
-    const { assignedTo } = req.body;
+    const { userId } = req.body;
+
+    console.log('=== DEBUG ASSIGNATION ===');
+    console.log('User ID to assign:', userId);
+    console.log('Requester ID:', req.userId);
 
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) {
       return res.status(404).json({ message: 'Ticket non trouvé' });
     }
 
-    // Tous les membres peuvent assigner
-    const project = await Project.findById(ticket.project);
-    const isMember = project.owner.equals(req.userId) ||
-      project.admins.includes(req.userId) ||
-      project.team.includes(req.userId);
+    // Charger le projet avec TOUS les champs populés
+    const project = await Project.findById(ticket.project)
+      .populate('owner', '_id firstName lastName email')
+      .populate('admins', '_id firstName lastName email')
+      .populate('team', '_id firstName lastName email');
 
-    if (!isMember) {
-      return res.status(403).json({ message: 'Accès refusé' }); 
+    if (!project) {
+      return res.status(404).json({ message: 'Projet non trouvé' });
     }
 
-    ticket.assignedTo = assignedTo;
+    console.log('Project owner:', project.owner);
+    console.log('Project admins:', project.admins);
+    console.log('Project team:', project.team);
 
+    // Vérifier que l'utilisateur demandeur est membre du projet
+    const isRequesterMember = 
+      project.owner._id.toString() === req.userId.toString() ||
+      project.admins.some(admin => admin._id.toString() === req.userId.toString()) ||
+      project.team.some(member => member._id.toString() === req.userId.toString());
+
+    if (!isRequesterMember) {
+      console.log('Requester is not a member');
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    // Vérifier que l'utilisateur à assigner est membre du projet
+    const isOwner = project.owner._id.toString() === userId.toString();
+    const isAdmin = project.admins.some(admin => admin._id.toString() === userId.toString());
+    const isTeamMember = project.team.some(member => member._id.toString() === userId.toString());
+    const isUserMember = isOwner || isAdmin || isTeamMember;
+
+    console.log('Is owner:', isOwner);
+    console.log('Is admin:', isAdmin);
+    console.log('Is team member:', isTeamMember);
+    console.log('Is user member:', isUserMember);
+
+    if (!isUserMember) {
+      console.log('User to assign is NOT a member');
+      return res.status(400).json({ message: 'L\'utilisateur n\'est pas membre du projet' });
+    }
+
+    // Vérifier si l'utilisateur n'est pas déjà assigné
+    if (ticket.assignedTo.some(id => id.toString() === userId.toString())) {
+      return res.status(400).json({ message: 'Utilisateur déjà assigné à ce ticket' });
+    }
+
+    // Ajouter l'assignation
+    ticket.assignedTo.push(userId);
     await ticket.save();
 
-    res.json({ message: 'Utilisateurs assignés au ticket', ticket });
+    const updatedTicket = await Ticket.findById(ticket._id)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('project', 'name');
+
+    console.log('=== ASSIGNATION RÉUSSIE ===');
+    res.json({ ticket: updatedTicket, message: 'Utilisateur assigné avec succès' });
   } catch (error) {
+    console.error('Erreur lors de l\'assignation:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
 
+// Assigner un utilisateur à un ticket
+exports.assignUserToTicket = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      return res.status(404).json({ message: 'Ticket non trouvé' });
+    }
+
+    // Vérifier que l'utilisateur demandeur est membre du projet
+    const project = await Project.findById(ticket.project);
+    const isRequesterMember = project.owner.equals(req.userId) ||
+      project.admins.some(admin => admin.equals(req.userId)) ||
+      project.team.some(member => member.equals(req.userId));
+
+    if (!isRequesterMember) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    // Vérifier que l'utilisateur à assigner est membre du projet
+    const isUserMember = project.owner.equals(userId) ||
+      project.admins.some(admin => admin.equals(userId)) ||
+      project.team.some(member => member.equals(userId));
+
+    if (!isUserMember) {
+      return res.status(400).json({ message: 'L\'utilisateur n\'est pas membre du projet' });
+    }
+
+    // Vérifier si l'utilisateur n'est pas déjà assigné
+    if (ticket.assignedTo.some(id => id.equals(userId))) {
+      return res.status(400).json({ message: 'Utilisateur déjà assigné à ce ticket' });
+    }
+
+    // Ajouter l'assignation
+    ticket.assignedTo.push(userId);
+    await ticket.save();
+
+    const updatedTicket = await Ticket.findById(ticket._id)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('project', 'name');
+
+    res.json({ ticket: updatedTicket, message: 'Utilisateur assigné avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de l\'assignation:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// Retirer l'assignation d'un utilisateur
+exports.unassignUserFromTicket = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      return res.status(404).json({ message: 'Ticket non trouvé' });
+    }
+
+    // Vérifier que l'utilisateur est membre du projet
+    const project = await Project.findById(ticket.project);
+    const isMember = project.owner.equals(req.userId) ||
+      project.admins.some(admin => admin.equals(req.userId)) ||
+      project.team.some(member => member.equals(req.userId));
+
+    if (!isMember) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    // Retirer l'assignation
+    ticket.assignedTo = ticket.assignedTo.filter(id => !id.equals(userId));
+    await ticket.save();
+
+    const updatedTicket = await Ticket.findById(ticket._id)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('project', 'name');
+
+    res.json({ ticket: updatedTicket, message: 'Assignation retirée avec succès' });
+  } catch (error) {
+    console.error('Erreur lors du retrait d\'assignation:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};

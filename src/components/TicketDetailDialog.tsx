@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Ticket, User, ticketService, commentService, Comment } from '@/utils/api';
+import { Ticket, User, ticketService, commentService, Comment, projectService, getCurrentUserId } from '@/utils/api';
 import {
   Dialog,
   DialogContent,
@@ -38,10 +38,12 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
   const { toast } = useToast();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [projectMembers, setProjectMembers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const currentUserId = getCurrentUserId();
   
   // Edit mode states
   const [isEditingTicket, setIsEditingTicket] = useState(false);
@@ -50,7 +52,7 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
   const [editDate, setEditDate] = useState<Date>();
   const [errors, setErrors] = useState<{ title?: string; description?: string; date?: string }>({});
 
-  // Charger le ticket et ses commentaires
+  // Charger le ticket, ses commentaires et les membres du projet
   const loadTicket = async () => {
     if (!ticketId) return;
     
@@ -68,7 +70,79 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
       setEditDate(new Date(ticketData.estimationDate));
       setIsEditingTicket(false);
       setErrors({});
+
+      // Charger les membres du projet
+      if (ticketData.project) {
+        const projectId = typeof ticketData.project === 'object' 
+          ? ticketData.project._id 
+          : ticketData.project;
+        
+        const projectData = await projectService.getById(projectId);
+        
+        console.log('=== DEBUG PROJET FRONTEND ===');
+        console.log('Project data:', projectData);
+        
+        // Helper function pour normaliser un membre
+        const normalizeMember = (member: any): User | null => {
+          if (!member || typeof member !== 'object') return null;
+          const userId = member._id || member.id;
+          if (!userId) {
+            console.warn('Member without ID:', member);
+            return null;
+          }
+          return {
+            ...member,
+            id: userId,
+            _id: userId,
+            firstName: member.firstName,
+            lastName: member.lastName,
+            email: member.email,
+            phone: member.phone,
+            avatar: member.avatar
+          };
+        };
+        
+        // Extraire tous les membres avec normalisation des IDs et dédoublonnage
+        const membersMap = new Map<string, User>();
+        
+        // Owner
+        if (projectData.owner) {
+          const normalizedOwner = normalizeMember(projectData.owner);
+          if (normalizedOwner) {
+            console.log('Adding owner:', normalizedOwner.id, normalizedOwner.firstName, normalizedOwner.lastName);
+            membersMap.set(normalizedOwner.id, normalizedOwner);
+          }
+        }
+        
+        // Admins
+        if (Array.isArray(projectData.admins)) {
+          projectData.admins.forEach((admin: any) => {
+            const normalizedAdmin = normalizeMember(admin);
+            if (normalizedAdmin) {
+              console.log('Adding admin:', normalizedAdmin.id, normalizedAdmin.firstName, normalizedAdmin.lastName);
+              membersMap.set(normalizedAdmin.id, normalizedAdmin);
+            }
+          });
+        }
+        
+        // Team
+        if (Array.isArray(projectData.team)) {
+          projectData.team.forEach((member: any) => {
+            const normalizedMember = normalizeMember(member);
+            if (normalizedMember) {
+              console.log('Adding team member:', normalizedMember.id, normalizedMember.firstName, normalizedMember.lastName);
+              membersMap.set(normalizedMember.id, normalizedMember);
+            }
+          });
+        }
+        
+        const allMembers = Array.from(membersMap.values());
+        console.log('Total members loaded:', allMembers.length);
+        console.log('All normalized members:', allMembers);
+        setProjectMembers(allMembers);
+      }
     } catch (error: any) {
+      console.error('Erreur de chargement du ticket:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger le ticket',
@@ -171,9 +245,62 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
       });
       onClose();
     } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Impossible de supprimer le ticket';
       toast({
         title: 'Erreur',
-        description: 'Impossible de supprimer le ticket',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Assigner un utilisateur
+  const handleAssign = async (userId: string) => {
+    if (!ticket || userId === 'placeholder' || !userId) {
+      console.log('❌ Invalid userId:', userId);
+      return;
+    }
+
+    console.log('=== DEBUG ASSIGNATION FRONTEND ===');
+    console.log('Trying to assign user ID:', userId);
+    console.log('User ID type:', typeof userId);
+    console.log('Ticket ID:', ticket._id);
+
+    try {
+      await ticketService.assign(ticket._id, userId);
+      toast({
+        title: 'Assignation ajoutée',
+        description: 'L\'utilisateur a été assigné au ticket.',
+      });
+      await loadTicket();
+    } catch (error: any) {
+      console.error('❌ Assignation error:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.message || 'Impossible d\'assigner l\'utilisateur';
+      toast({
+        title: 'Erreur',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
+
+
+  // Retirer une assignation
+  const handleUnassign = async (userId: string) => {
+    if (!ticket) return;
+
+    try {
+      await ticketService.unassign(ticket._id, userId);
+      toast({
+        title: 'Assignation retirée',
+        description: 'L\'utilisateur a été retiré du ticket.',
+      });
+      await loadTicket();
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de retirer l\'assignation',
         variant: 'destructive',
       });
     }
@@ -196,9 +323,10 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
       setNewComment('');
       await loadTicket();
     } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Impossible d\'ajouter le commentaire';
       toast({
         title: 'Erreur',
-        description: 'Impossible d\'ajouter le commentaire',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -219,9 +347,10 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
       setEditingContent('');
       await loadTicket();
     } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Impossible de modifier le commentaire';
       toast({
         title: 'Erreur',
-        description: 'Impossible de modifier le commentaire',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -239,9 +368,10 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
       
       await loadTicket();
     } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Impossible de supprimer le commentaire';
       toast({
         title: 'Erreur',
-        description: 'Impossible de supprimer le commentaire',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -263,10 +393,25 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
 
   if (!ticket) return null;
 
-  // Extraire les utilisateurs assignés
+  // Extraire les utilisateurs assignés - UTILISER _id
   const assignedUsers = Array.isArray(ticket.assignedTo)
-    ? ticket.assignedTo.filter(a => typeof a === 'object') as User[]
+    ? ticket.assignedTo.filter(a => typeof a === 'object').map((user: any) => ({
+        ...user,
+        id: user._id || user.id  // Normaliser l'ID
+      })) as User[]
     : [];
+
+  // Utilisateurs disponibles pour assignation - UTILISER _id pour la comparaison
+  const availableUsers = projectMembers.filter(
+    member => {
+      const memberId = member._id || member.id;
+      return !assignedUsers.some(assigned => {
+        const assignedId = assigned._id || assigned.id;
+        return assignedId === memberId;
+      });
+    }
+  );
+
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -289,7 +434,7 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
               ) : (
                 <DialogTitle className="text-xl mb-2">{ticket.title}</DialogTitle>
               )}
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <StatusBadge status={ticket.status} type="ticket" />
                 {isEditingTicket ? (
                   <Popover>
@@ -319,13 +464,13 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
                   </Popover>
                 ) : (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <CalendarIcon className="h-4 w-4" />
+                    <CalendarIcon className="h-4 w-4 flex-shrink-0" />
                     <span>Échéance {format(new Date(ticket.estimationDate), 'PPP', { locale: fr })}</span>
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               {isEditingTicket ? (
                 <>
                   <Button size="icon" variant="ghost" onClick={handleSaveTicket}>
@@ -397,66 +542,127 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
             </div>
 
             {/* Assignees */}
-            <div>
-              <h4 className="text-sm font-medium mb-2">Assignés</h4>
-              <div className="flex flex-wrap gap-2">
-                {assignedUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center gap-2 bg-secondary rounded-full pl-1 pr-2 py-1"
-                  >
-                    <UserAvatar user={user} size="sm" />
-                    <span className="text-sm">{user.firstName} {user.lastName}</span>
-                  </div>
-                ))}
-                {assignedUsers.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Aucun assigné</p>
-                )}
+<div>
+  <h4 className="text-sm font-medium mb-2">Assignés</h4>
+  {assignedUsers.length === 0 && availableUsers.length === 0 ? (
+    <p className="text-sm text-muted-foreground mb-2">Aucun membre disponible</p>
+  ) : (
+    <>
+      {assignedUsers.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {assignedUsers.map((user) => {
+            const userId = user._id || user.id;
+            return (
+              <div
+                key={userId}
+                className="flex items-center gap-2 bg-secondary rounded-full pl-1 pr-3 py-1 hover:bg-secondary/80 transition-colors"
+              >
+                <UserAvatar user={user} size="sm" />
+                <span className="text-sm whitespace-nowrap">{user.firstName} {user.lastName}</span>
+                <button
+                  onClick={() => handleUnassign(userId)}
+                  className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                  aria-label="Retirer l'assignation"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </div>
-            </div>
-
+            );
+          })}
+        </div>
+      )}
+      {assignedUsers.length === 0 && (
+        <p className="text-sm text-muted-foreground mb-3">Aucun assigné</p>
+      )}
+      {availableUsers.length > 0 && (
+        <Select value="placeholder" onValueChange={handleAssign}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Ajouter un assigné..." />
+          </SelectTrigger>
+          <SelectContent>
+            {availableUsers.map((user) => {
+              const userId = user._id || user.id;
+              return (
+                <SelectItem key={userId} value={userId}>
+                  <div className="flex items-center gap-2">
+                    <span>{user.firstName} {user.lastName}</span>
+                  </div>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      )}
+    </>
+  )}
+</div>
             {/* Comments */}
             <div>
               <h4 className="text-sm font-medium mb-3">Commentaires ({comments.length})</h4>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {comments.map((comment) => {
                   const author = typeof comment.author === 'object' ? comment.author : null;
                   if (!author) return null;
 
+                  // Debug - afficher les IDs
+                  const authorId = author._id || author.id;
+                  console.log('Current User ID:', currentUserId);
+                  console.log('Comment Author ID:', authorId);
+                  console.log('Author object:', author);
+                  
+                  // Vérifier si l'utilisateur connecté est l'auteur du commentaire
+                  const isAuthor = currentUserId === authorId || currentUserId === author.id || currentUserId === author._id;
+                  
+                  console.log('Is Author:', isAuthor);
+
                   return (
                     <div key={comment._id} className="flex gap-3">
-                      <UserAvatar user={author} size="sm" />
+                      <div className="flex-shrink-0">
+                        <UserAvatar user={author} size="sm" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium">
-                            {author.firstName} {author.lastName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(comment.createdAt!), 'PPP à HH:mm', { locale: fr })}
-                          </span>
-                          <div className="flex items-center gap-1 ml-auto">
-                            <button
-                              onClick={() => setEditingCommentId(comment._id)}
-                              className="p-1 text-muted-foreground hover:text-foreground"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteComment(comment._id)}
-                              className="p-1 text-muted-foreground hover:text-destructive"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                        <div className="flex items-start justify-between gap-2 mb-1 flex-wrap">
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-sm font-medium truncate">
+                              {author.firstName} {author.lastName}
+                              {isAuthor && <span className="ml-2 text-xs text-primary">(Vous)</span>}
+                            </span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {format(new Date(comment.createdAt!), 'PPP à HH:mm', { locale: fr })}
+                            </span>
                           </div>
+                          {/* Boutons d'édition seulement pour l'auteur */}
+                          {isAuthor && editingCommentId !== comment._id && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingCommentId(comment._id);
+                                  setEditingContent(comment.content);
+                                }}
+                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors"
+                                aria-label="Modifier le commentaire"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteComment(comment._id)}
+                                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
+                                aria-label="Supprimer le commentaire"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                         {editingCommentId === comment._id ? (
-                          <div className="flex gap-2">
+                          <div className="space-y-2 mt-2">
                             <Textarea
-                              value={editingContent || comment.content}
+                              value={editingContent}
                               onChange={(e) => setEditingContent(e.target.value)}
-                              className="min-h-[60px]"
+                              className="min-h-[80px]"
+                              autoFocus
                             />
-                            <div className="flex flex-col gap-1">
+                            <div className="flex gap-2">
                               <Button size="sm" onClick={() => handleSaveComment(comment._id)}>
                                 Enregistrer
                               </Button>
@@ -473,7 +679,7 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
                             </div>
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground">{comment.content}</p>
+                          <p className="text-sm text-muted-foreground mt-1 break-words">{comment.content}</p>
                         )}
                       </div>
                     </div>
@@ -482,22 +688,26 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
               </div>
 
               {/* New Comment */}
-              <div className="flex gap-3 mt-4">
-                <div className="flex-1 flex gap-2">
-                  <Textarea
-                    placeholder="Ajouter un commentaire..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    className="min-h-[60px]"
-                  />
-                  <Button
-                    size="icon"
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim()}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="flex gap-2 mt-4">
+                <Textarea
+                  placeholder="Ajouter un commentaire..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  className="min-h-[80px] flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                      handleAddComment();
+                    }
+                  }}
+                />
+                <Button
+                  size="icon"
+                  onClick={handleAddComment}
+                  disabled={!newComment.trim()}
+                  className="flex-shrink-0"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>

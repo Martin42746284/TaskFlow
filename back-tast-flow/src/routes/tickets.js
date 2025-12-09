@@ -19,7 +19,16 @@ router.get('/:id', ticketController.getTicketById);
 // PUT /api/tickets/:id - Modifier un ticket
 router.put('/:id', ticketController.updateTicket);
 
-// DELETE /api/tickets/:id - Supprimer un ticket (seul le créateur)
+// DELETE /api/tickets/:id - Supprimer un ticket
 router.delete('/:id', ticketController.deleteTicket);
+
+// POST /api/tickets/:id/assign - Assigner un utilisateur à un ticket
+router.post('/:id/assign', ticketController.assignUserToTicket);
+
+// DELETE /api/tickets/:id/assign/:userId - Retirer l'assignation d'un utilisateur
+router.delete('/:id/assign/:userId', ticketController.unassignUserFromTicket);
+
+// PUT /api/tickets/:id/assign - Assigner plusieurs utilisateurs (remplacer tous)
+//router.put('/:id/assign', ticketController.assignUsersToTicket);
 
 module.exports = router;

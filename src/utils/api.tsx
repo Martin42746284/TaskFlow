@@ -2,14 +2,14 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // Types pour les données
-// Dans api.tsx
 export interface User {
+  _id?: string;
   id: string;
   firstName: string;
   lastName: string;
   phone: string;
   email: string;
-  avatar?: string; // Optionnel
+  avatar?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -85,7 +85,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token invalide ou expiré
       localStorage.removeItem('token');
-      window.location.href = '/login'; // Rediriger vers la page de connexion
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
@@ -93,8 +93,8 @@ apiClient.interceptors.response.use(
 
 // ===== Services Auth =====
 export const authService = {
-  // Inscription
-  signup: async (data: {
+  // Inscription (register)
+  register: async (data: {
     firstName: string;
     lastName: string;
     phone: string;
@@ -108,8 +108,8 @@ export const authService = {
     return response.data;
   },
 
-  // Connexion
-  signin: async (data: { email: string; password: string }): Promise<AuthResponse> => {
+  // Connexion (login)
+  login: async (data: { email: string; password: string }): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>('/auth/signin', data);
     if (response.data.token) {
       localStorage.setItem('token', response.data.token);
@@ -121,6 +121,37 @@ export const authService = {
   logout: () => {
     localStorage.removeItem('token');
   },
+};
+
+// Utilitaires d'authentification
+export const authUtils = {
+  isAuthenticated: (): boolean => {
+    return !!localStorage.getItem('token');
+  },
+  
+  getCurrentToken: (): string | null => {
+    return localStorage.getItem('token');
+  },
+  
+  clearAuth: (): void => {
+    localStorage.removeItem('token');
+  }
+};
+
+// Fonction pour obtenir l'ID de l'utilisateur connecté
+export const getCurrentUserId = (): string | null => {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    console.log('Token payload:', payload); // Debug
+    // Le backend utilise 'userId' dans le token
+    return payload.userId || payload.id || payload._id;
+  } catch (error) {
+    console.error('Erreur lors du décodage du token:', error);
+    return null;
+  }
 };
 
 // ===== Services User =====
@@ -137,6 +168,12 @@ export const userService = {
       '/users/profile',
       data
     );
+    return response.data;
+  },
+
+  // Obtenir un utilisateur par ID (pour les assignations)
+  getById: async (id: string): Promise<User> => {
+    const response = await apiClient.get<User>(`/users/${id}`);
     return response.data;
   },
 };
@@ -246,6 +283,32 @@ export const ticketService = {
     const response = await apiClient.delete<{ message: string }>(`/tickets/${id}`);
     return response.data;
   },
+
+  // Assigner un utilisateur à un ticket
+  assign: async (ticketId: string, userId: string): Promise<Ticket> => {
+    const response = await apiClient.post<{ ticket: Ticket }>(
+      `/tickets/${ticketId}/assign`,
+      { userId }
+    );
+    return response.data.ticket;
+  },
+
+  // Retirer l'assignation d'un utilisateur
+  unassign: async (ticketId: string, userId: string): Promise<Ticket> => {
+    const response = await apiClient.delete<{ ticket: Ticket }>(
+      `/tickets/${ticketId}/assign/${userId}`
+    );
+    return response.data.ticket;
+  },
+
+  // Assigner plusieurs utilisateurs (remplacer tous)
+  assignMultiple: async (ticketId: string, userIds: string[]): Promise<Ticket> => {
+    const response = await apiClient.put<{ ticket: Ticket }>(
+      `/tickets/${ticketId}/assign`,
+      { assignedTo: userIds }
+    );
+    return response.data.ticket;
+  },
 };
 
 // ===== Services Comment =====
@@ -254,12 +317,12 @@ export const commentService = {
   create: async (data: {
     content: string;
     ticketId: string;
-  }): Promise<{ message: string; comment: Comment }> => {
+  }): Promise<Comment> => {
     const response = await apiClient.post<{ message: string; comment: Comment }>(
       '/comments',
       data
     );
-    return response.data;
+    return response.data.comment;
   },
 
   // Lister les commentaires d'un ticket
@@ -268,22 +331,36 @@ export const commentService = {
     return response.data;
   },
 
+  // Obtenir un commentaire par ID
+  getById: async (id: string): Promise<Comment> => {
+    const response = await apiClient.get<Comment>(`/comments/${id}`);
+    return response.data;
+  },
+
   // Modifier un commentaire
   update: async (
     id: string,
     data: { content: string }
-  ): Promise<{ message: string; comment: Comment }> => {
+  ): Promise<Comment> => {
     const response = await apiClient.put<{ message: string; comment: Comment }>(
       `/comments/${id}`,
       data
     );
-    return response.data;
+    return response.data.comment;
   },
 
   // Supprimer un commentaire
   delete: async (id: string): Promise<{ message: string }> => {
     const response = await apiClient.delete<{ message: string }>(`/comments/${id}`);
     return response.data;
+  },
+
+  // Compter les commentaires d'un ticket
+  countByTicket: async (ticketId: string): Promise<number> => {
+    const response = await apiClient.get<{ count: number }>(
+      `/comments/ticket/${ticketId}/count`
+    );
+    return response.data.count;
   },
 };
 

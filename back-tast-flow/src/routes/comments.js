@@ -13,6 +13,12 @@ router.post('/', commentController.createComment);
 // GET /api/comments/ticket/:ticketId - Lister les commentaires d'un ticket
 router.get('/ticket/:ticketId', commentController.getCommentsByTicket);
 
+// GET /api/comments/ticket/:ticketId/count - Compter les commentaires d'un ticket
+router.get('/ticket/:ticketId/count', commentController.countCommentsByTicket);
+
+// GET /api/comments/:id - Obtenir un commentaire par ID
+router.get('/:id', commentController.getCommentById);
+
 // PUT /api/comments/:id - Modifier un commentaire (seul l'auteur)
 router.put('/:id', commentController.updateComment);
 
