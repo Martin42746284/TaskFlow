@@ -6,6 +6,8 @@ import Signup from '@/pages/Signup';
 import Index from '@/pages/Index';
 import ProjectPage from '@/pages/ProjectPage';
 import ProfilePage from './pages/ProfilePage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage'; // ✅ Nouveau
+import ResetPasswordPage from './pages/ResetPasswordPage'; // ✅ Nouveau
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} /> {/* ✅ Nouveau */}
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} /> {/* ✅ Nouveau */}
         
         {/* Routes protégées */}
         <Route element={<ProtectedRoute />}>

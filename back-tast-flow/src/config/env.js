@@ -24,6 +24,11 @@ const config = {
     secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
+  email: {
+    user: process.env.EMAIL_USER || 'manampisoa.m@zurcher.edu.mg',
+    password: process.env.EMAIL_PASSWORD || 'vewc ixkc niih uhne',
+  },
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:8080',
 };
 
 module.exports = config;

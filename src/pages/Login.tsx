@@ -112,7 +112,14 @@ export default function Login() {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Connexion...' : 'Se connecter'}
             </Button>
-
+            <div className="text-center">
+              <Link 
+                to="/forgot-password" 
+                className="text-sm text-primary hover:underline"
+              >
+                Mot de passe oublié ?
+              </Link>
+            </div>
             <div className="text-center text-sm">
               <span className="text-muted-foreground">Pas encore de compte ? </span>
               <Link to="/signup" className="text-primary hover:underline font-medium">
