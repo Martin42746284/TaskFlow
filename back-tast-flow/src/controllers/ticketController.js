@@ -33,8 +33,8 @@ exports.createTicket = async (req, res) => {
     });
 
     const populatedTicket = await Ticket.findById(ticket._id)
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email')
+      .populate('assignedTo', 'firstName lastName email avatar')
+      .populate('createdBy', 'firstName lastName email avatar')
       .populate('project', 'name');
 
     res.status(201).json({ message: 'Ticket créé', ticket: populatedTicket });
@@ -47,8 +47,8 @@ exports.createTicket = async (req, res) => {
 exports.getTicketsByProject = async (req, res) => {
   try {
     const tickets = await Ticket.find({ project: req.params.projectId })
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email')
+      .populate('assignedTo', 'firstName lastName email avatar')
+      .populate('createdBy', 'firstName lastName email avatar')
       .populate('project', 'name');
 
     res.json(tickets);
@@ -61,8 +61,8 @@ exports.getTicketsByProject = async (req, res) => {
 exports.getTicketById = async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id)
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email')
+      .populate('assignedTo', 'firstName lastName email avatar')
+      .populate('createdBy', 'firstName lastName email avatar')
       .populate('project', 'name');
 
     if (!ticket) {
@@ -104,8 +104,8 @@ exports.updateTicket = async (req, res) => {
     await ticket.save();
 
     const updatedTicket = await Ticket.findById(ticket._id)
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email')
+      .populate('assignedTo', 'firstName lastName email avatar')
+      .populate('createdBy', 'firstName lastName email avatar')
       .populate('project', 'name');
 
     res.json({ message: 'Ticket mis à jour', ticket: updatedTicket });
@@ -141,21 +141,17 @@ exports.deleteTicket = async (req, res) => {
   }
 };
 
-// Assigner plusieurs utilisateurs à un ticket
+// Assigner un utilisateur à un ticket
 exports.assignUserToTicket = async (req, res) => {
   try {
     const { userId } = req.body;
-
-    console.log('=== DEBUG ASSIGNATION ===');
-    console.log('User ID to assign:', userId);
-    console.log('Requester ID:', req.userId);
 
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) {
       return res.status(404).json({ message: 'Ticket non trouvé' });
     }
 
-    // Charger le projet avec TOUS les champs populés
+    // Charger le projet avec tous les champs populés
     const project = await Project.findById(ticket.project)
       .populate('owner', '_id firstName lastName email')
       .populate('admins', '_id firstName lastName email')
@@ -165,10 +161,6 @@ exports.assignUserToTicket = async (req, res) => {
       return res.status(404).json({ message: 'Projet non trouvé' });
     }
 
-    console.log('Project owner:', project.owner);
-    console.log('Project admins:', project.admins);
-    console.log('Project team:', project.team);
-
     // Vérifier que l'utilisateur demandeur est membre du projet
     const isRequesterMember = 
       project.owner._id.toString() === req.userId.toString() ||
@@ -176,7 +168,6 @@ exports.assignUserToTicket = async (req, res) => {
       project.team.some(member => member._id.toString() === req.userId.toString());
 
     if (!isRequesterMember) {
-      console.log('Requester is not a member');
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
@@ -186,13 +177,7 @@ exports.assignUserToTicket = async (req, res) => {
     const isTeamMember = project.team.some(member => member._id.toString() === userId.toString());
     const isUserMember = isOwner || isAdmin || isTeamMember;
 
-    console.log('Is owner:', isOwner);
-    console.log('Is admin:', isAdmin);
-    console.log('Is team member:', isTeamMember);
-    console.log('Is user member:', isUserMember);
-
     if (!isUserMember) {
-      console.log('User to assign is NOT a member');
       return res.status(400).json({ message: 'L\'utilisateur n\'est pas membre du projet' });
     }
 
@@ -206,59 +191,8 @@ exports.assignUserToTicket = async (req, res) => {
     await ticket.save();
 
     const updatedTicket = await Ticket.findById(ticket._id)
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email')
-      .populate('project', 'name');
-
-    console.log('=== ASSIGNATION RÉUSSIE ===');
-    res.json({ ticket: updatedTicket, message: 'Utilisateur assigné avec succès' });
-  } catch (error) {
-    console.error('Erreur lors de l\'assignation:', error);
-    res.status(500).json({ message: 'Erreur serveur', error: error.message });
-  }
-};
-
-// Assigner un utilisateur à un ticket
-exports.assignUserToTicket = async (req, res) => {
-  try {
-    const { userId } = req.body;
-
-    const ticket = await Ticket.findById(req.params.id);
-    if (!ticket) {
-      return res.status(404).json({ message: 'Ticket non trouvé' });
-    }
-
-    // Vérifier que l'utilisateur demandeur est membre du projet
-    const project = await Project.findById(ticket.project);
-    const isRequesterMember = project.owner.equals(req.userId) ||
-      project.admins.some(admin => admin.equals(req.userId)) ||
-      project.team.some(member => member.equals(req.userId));
-
-    if (!isRequesterMember) {
-      return res.status(403).json({ message: 'Accès refusé' });
-    }
-
-    // Vérifier que l'utilisateur à assigner est membre du projet
-    const isUserMember = project.owner.equals(userId) ||
-      project.admins.some(admin => admin.equals(userId)) ||
-      project.team.some(member => member.equals(userId));
-
-    if (!isUserMember) {
-      return res.status(400).json({ message: 'L\'utilisateur n\'est pas membre du projet' });
-    }
-
-    // Vérifier si l'utilisateur n'est pas déjà assigné
-    if (ticket.assignedTo.some(id => id.equals(userId))) {
-      return res.status(400).json({ message: 'Utilisateur déjà assigné à ce ticket' });
-    }
-
-    // Ajouter l'assignation
-    ticket.assignedTo.push(userId);
-    await ticket.save();
-
-    const updatedTicket = await Ticket.findById(ticket._id)
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email')
+      .populate('assignedTo', 'firstName lastName email avatar')
+      .populate('createdBy', 'firstName lastName email avatar')
       .populate('project', 'name');
 
     res.json({ ticket: updatedTicket, message: 'Utilisateur assigné avec succès' });
@@ -293,8 +227,8 @@ exports.unassignUserFromTicket = async (req, res) => {
     await ticket.save();
 
     const updatedTicket = await Ticket.findById(ticket._id)
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('createdBy', 'firstName lastName email')
+      .populate('assignedTo', 'firstName lastName email avatar')
+      .populate('createdBy', 'firstName lastName email avatar')
       .populate('project', 'name');
 
     res.json({ ticket: updatedTicket, message: 'Assignation retirée avec succès' });

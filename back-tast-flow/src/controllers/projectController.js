@@ -29,7 +29,7 @@ exports.getProjects = async (req, res) => {
         { admins: req.userId },
         { team: req.userId },
       ],
-    }).populate('owner admins team', 'firstName lastName email');
+    }).populate('owner admins team', 'firstName lastName email avatar');
 
     res.json(projects);
   } catch (error) {
@@ -41,7 +41,7 @@ exports.getProjects = async (req, res) => {
 exports.getProjectById = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
-      .populate('owner admins team', 'firstName lastName email');
+      .populate('owner admins team', 'firstName lastName email avatar');
 
     if (!project) {
       return res.status(404).json({ message: 'Projet non trouvé' });
@@ -171,7 +171,7 @@ exports.removeMembers = async (req, res) => {
 exports.getProjectMembers = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
-      .populate('owner admins team', 'firstName lastName email');
+      .populate('owner admins team', 'firstName lastName email avatar');
 
     if (!project) {
       return res.status(404).json({ message: 'Projet non trouvé' });
@@ -186,4 +186,3 @@ exports.getProjectMembers = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
-
