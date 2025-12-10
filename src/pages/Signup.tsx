@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { PasswordInput } from '@/components/PasswordInput';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Loader2, FolderKanban } from 'lucide-react';
 
 export default function Signup() {
@@ -88,8 +90,11 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted px-4 py-8">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
         <CardHeader className="space-y-1 flex flex-col items-center">
           <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary mb-2">
             <FolderKanban className="h-6 w-6 text-primary-foreground" />
@@ -169,39 +174,29 @@ export default function Signup() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe *</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={errors.password ? 'border-destructive' : ''}
-                disabled={isLoading}
-                autoComplete="new-password"
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
-            </div>
+            <PasswordInput
+              id="password"
+              label="Mot de passe *"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              error={errors.password}
+              showStrength={true}
+              autoComplete="new-password"
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={errors.confirmPassword ? 'border-destructive' : ''}
-                disabled={isLoading}
-                autoComplete="new-password"
-              />
-              {errors.confirmPassword && (
-                <p className="text-sm text-destructive">{errors.confirmPassword}</p>
-              )}
-            </div>
+            <PasswordInput
+              id="confirmPassword"
+              label="Confirmer le mot de passe *"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
+              error={errors.confirmPassword}
+              showStrength={false}
+              autoComplete="new-password"
+            />
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -269,50 +269,48 @@ const ProjectPage = () => {
         )}
 
         {/* Project Header */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold">{project.name}</h1>
-              <StatusBadge status={project.status} type="project" />
-              {canEditProject && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setEditProjectOpen(true)}
-                  className="h-8 w-8"
-                  title="Modifier le projet"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            {project.description && (
-              <p className="text-muted-foreground mb-4">{project.description}</p>
-            )}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => canManageTeam ? setTeamDialogOpen(true) : null}
-                className={`flex items-center gap-2 rounded-lg px-2 py-1 -ml-2 transition-colors ${
-                  canManageTeam ? 'hover:bg-accent/50 cursor-pointer' : 'cursor-default'
-                }`}
-                disabled={!canManageTeam}
-                title={canManageTeam ? 'Gérer l\'équipe' : 'Membres du projet'}
+        <div className="flex flex-col gap-4 mb-8">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-bold">{project.name}</h1>
+            <StatusBadge status={project.status} type="project" />
+            {canEditProject && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setEditProjectOpen(true)}
+                className="h-8 w-8"
+                title="Modifier le projet"
               >
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <AvatarGroup users={memberUsers} max={5} size="sm" />
-                <span className={`text-sm text-muted-foreground transition-colors ${
-                  canManageTeam ? 'hover:text-foreground' : ''
-                }`}>
-                  {memberUsers.length} membre{memberUsers.length !== 1 ? 's' : ''}
-                </span>
-              </button>
-            </div>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {project.description && (
+            <p className="text-muted-foreground">{project.description}</p>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => canManageTeam ? setTeamDialogOpen(true) : null}
+              className={`flex items-center gap-1 sm:gap-2 rounded-lg px-2 py-1 transition-colors text-sm ${
+                canManageTeam ? 'hover:bg-accent/50 cursor-pointer' : 'cursor-default'
+              }`}
+              disabled={!canManageTeam}
+              title={canManageTeam ? 'Gérer l\'équipe' : 'Membres du projet'}
+            >
+              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <AvatarGroup users={memberUsers} max={5} size="sm" />
+              <span className={`text-xs sm:text-sm text-muted-foreground transition-colors ${
+                canManageTeam ? 'hover:text-foreground' : ''
+              }`}>
+                {memberUsers.length} membre{memberUsers.length !== 1 ? 's' : ''}
+              </span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
             {canChangeStatus ? (
               <Select value={project.status} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-36">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -322,30 +320,33 @@ const ProjectPage = () => {
                 </SelectContent>
               </Select>
             ) : (
-              <div className="w-36 px-3 py-2 border border-border rounded-md bg-muted text-sm">
+              <div className="w-full sm:w-40 px-3 py-2 border border-border rounded-md bg-muted text-sm">
                 {project.status}
               </div>
             )}
 
             {canManageTeam && (
-              <Button variant="outline" onClick={() => setTeamDialogOpen(true)}>
+              <Button variant="outline" onClick={() => setTeamDialogOpen(true)} className="w-full sm:w-auto">
                 <Users className="h-4 w-4 mr-2" />
-                Équipe
+                <span className="hidden sm:inline">Équipe</span>
+                <span className="sm:hidden">Gérer</span>
               </Button>
             )}
 
             {canCreateTicket && (
-              <Button onClick={() => setCreateTicketOpen(true)}>
+              <Button onClick={() => setCreateTicketOpen(true)} className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
-                Ajouter un ticket
+                <span className="hidden sm:inline">Ajouter un ticket</span>
+                <span className="sm:hidden">Ajouter</span>
               </Button>
             )}
 
             {canDeleteProject && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                  <Button variant="outline" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 w-full sm:w-auto">
                     <Trash2 className="h-4 w-4" />
+                    <span className="sm:hidden ml-2">Supprimer</span>
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -372,12 +373,14 @@ const ProjectPage = () => {
         </div>
 
         {/* Kanban Board */}
-        <div className="border border-border/50 rounded-xl bg-card/50 p-6">
-          <KanbanBoard
-            projectId={project._id}
-            onTicketClick={setSelectedTicketId}
-            onAddTicket={canCreateTicket ? () => setCreateTicketOpen(true) : undefined}
-          />
+        <div className="border border-border/50 rounded-xl bg-card/50 p-2 sm:p-4 lg:p-6 -mx-4 sm:mx-0 sm:rounded-xl">
+          <div className="px-2 sm:px-0">
+            <KanbanBoard
+              projectId={project._id}
+              onTicketClick={setSelectedTicketId}
+              onAddTicket={canCreateTicket ? () => setCreateTicketOpen(true) : undefined}
+            />
+          </div>
         </div>
       </main>
 

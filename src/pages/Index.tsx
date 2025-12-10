@@ -58,46 +58,48 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container py-8">
+      <main className="container py-4 sm:py-8 px-4 sm:px-6">
         {/* Hero Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Mes Projets</h1>
-          <p className="text-muted-foreground">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Mes Projets</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Gérez vos projets et suivez leur progression facilement
           </p>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col gap-3 mb-6 sm:mb-8">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Rechercher des projets..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+              className="pl-10 w-full"
               disabled={isLoading}
             />
           </div>
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as 'Actif' | 'Inactif' | 'Archivé' | 'all')}
-            disabled={isLoading}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Statut" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="Actif">Actif</SelectItem>
-              <SelectItem value="Inactif">Inactif</SelectItem>
-              <SelectItem value="Archivé">Archivé</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={() => setCreateDialogOpen(true)} disabled={isLoading}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nouveau Projet
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as 'Actif' | 'Inactif' | 'Archivé' | 'all')}
+              disabled={isLoading}
+            >
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="Actif">Actif</SelectItem>
+                <SelectItem value="Inactif">Inactif</SelectItem>
+                <SelectItem value="Archivé">Archivé</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setCreateDialogOpen(true)} disabled={isLoading} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              Nouveau Projet
+            </Button>
+          </div>
         </div>
 
         {/* Loading State */}

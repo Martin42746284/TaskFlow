@@ -69,7 +69,7 @@ export function KanbanColumn({
   }, [projectId, status]);
 
   return (
-    <div className="flex flex-col w-80 min-w-[320px] shrink-0">
+    <div className="flex flex-col w-full sm:w-80 sm:min-w-[320px] sm:shrink-0">
       <div className="flex items-center justify-between mb-4 px-1">
         <div className="flex items-center gap-2">
           <div className={cn('w-2 h-2 rounded-full', config.color)} />

@@ -79,13 +79,13 @@ export function KanbanBoard({ projectId, onTicketClick, onAddTicket }: KanbanBoa
   };
 
   return (
-    <DndContext 
-      sensors={sensors} 
+    <DndContext
+      sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-6 overflow-x-auto pb-4 px-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:gap-6 lg:overflow-x-auto pb-4 px-1 gap-4 lg:gap-0">
         {statuses.map((status) => (
           <KanbanColumn
             key={status}

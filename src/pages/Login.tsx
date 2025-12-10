@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { PasswordInput } from '@/components/PasswordInput';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Loader2, FolderKanban } from 'lucide-react';
 
 export default function Login() {
@@ -61,8 +63,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted px-4 py-8">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
         <CardHeader className="space-y-1 flex flex-col items-center">
           <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary mb-2">
             <FolderKanban className="h-6 w-6 text-primary-foreground" />
@@ -91,22 +96,17 @@ export default function Login() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={errors.password ? 'border-destructive' : ''}
-                disabled={isLoading}
-                autoComplete="current-password"
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
-            </div>
+            <PasswordInput
+              id="password"
+              label="Mot de passe"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              error={errors.password}
+              showStrength={false}
+              autoComplete="current-password"
+            />
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { PasswordInput } from '@/components/PasswordInput';
 import { userService, User, getAvatarUrl } from '@/utils/api';
 import { Loader2, Camera, Lock, User as UserIcon, Mail, Phone, Trash2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,18 +34,15 @@ const ProfilePage = () => {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [showDeleteAvatarDialog, setShowDeleteAvatarDialog] = useState(false);
   
-  // États pour les informations personnelles
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   
-  // États pour le changement de mot de passe
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // États pour les erreurs
   const [profileErrors, setProfileErrors] = useState<{
     firstName?: string;
     lastName?: string;
@@ -58,7 +56,6 @@ const ProfilePage = () => {
     confirmPassword?: string;
   }>({});
 
-  // Charger le profil de l'utilisateur
   const loadProfile = async () => {
     try {
       setIsLoading(true);
@@ -84,7 +81,6 @@ const ProfilePage = () => {
     loadProfile();
   }, []);
 
-  // Upload avatar
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
@@ -93,7 +89,6 @@ const ProfilePage = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Vérifier le type de fichier
     if (!file.type.startsWith('image/')) {
       toast({
         title: 'Erreur',
@@ -103,7 +98,6 @@ const ProfilePage = () => {
       return;
     }
 
-    // Vérifier la taille (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: 'Erreur',
@@ -117,8 +111,6 @@ const ProfilePage = () => {
       setIsUploadingAvatar(true);
       const updatedUser = await userService.uploadAvatar(file);
       setUser(updatedUser);
-      
-      // Déclencher l'événement pour mettre à jour le Header
       window.dispatchEvent(new Event('profileUpdated'));
       
       toast({
@@ -134,21 +126,17 @@ const ProfilePage = () => {
       });
     } finally {
       setIsUploadingAvatar(false);
-      // Réinitialiser l'input pour permettre de resélectionner la même image
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
   };
 
-  // Supprimer avatar
   const handleDeleteAvatar = async () => {
     try {
       setIsUploadingAvatar(true);
       const updatedUser = await userService.deleteAvatar();
       setUser(updatedUser);
-      
-      // Déclencher l'événement pour mettre à jour le Header
       window.dispatchEvent(new Event('profileUpdated'));
       
       toast({
@@ -168,7 +156,6 @@ const ProfilePage = () => {
     }
   };
 
-  // Validation des informations personnelles
   const validateProfile = () => {
     const errors: typeof profileErrors = {};
     
@@ -194,7 +181,6 @@ const ProfilePage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Validation du changement de mot de passe
   const validatePassword = () => {
     const errors: typeof passwordErrors = {};
     
@@ -218,7 +204,6 @@ const ProfilePage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Sauvegarder les informations personnelles
   const handleSaveProfile = async () => {
     if (!validateProfile()) return;
     
@@ -232,8 +217,6 @@ const ProfilePage = () => {
       });
       
       setUser(updatedUser);
-      
-      // Déclencher l'événement pour mettre à jour le Header
       window.dispatchEvent(new Event('profileUpdated'));
       
       toast({
@@ -252,7 +235,6 @@ const ProfilePage = () => {
     }
   };
 
-  // Changer le mot de passe
   const handleChangePassword = async () => {
     if (!validatePassword()) return;
     
@@ -268,7 +250,6 @@ const ProfilePage = () => {
         description: 'Votre mot de passe a été changé avec succès.',
       });
       
-      // Réinitialiser les champs
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -285,7 +266,6 @@ const ProfilePage = () => {
     }
   };
 
-  // État de chargement
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -301,7 +281,6 @@ const ProfilePage = () => {
 
   if (!user) return null;
 
-  // Initiales pour l'avatar
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   const avatarUrl = getAvatarUrl(user.avatar);
 
@@ -309,22 +288,22 @@ const ProfilePage = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container py-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Paramètres du profil</h1>
-          <p className="text-muted-foreground">
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 max-w-4xl">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Paramètres du profil</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Gérez vos informations personnelles et vos préférences
           </p>
         </div>
 
-        {/* Avatar Section */}
+        {/* Avatar Section - Responsive */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-6">
-              <div className="relative">
-                <Avatar className="h-24 w-24">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+              <div className="relative flex-shrink-0">
+                <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
                   <AvatarImage src={avatarUrl} alt={`${user.firstName} ${user.lastName}`} />
-                  <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
+                  <AvatarFallback className="text-lg sm:text-2xl">{initials}</AvatarFallback>
                 </Avatar>
                 <input
                   ref={fileInputRef}
@@ -348,23 +327,24 @@ const ProfilePage = () => {
                   )}
                 </Button>
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold">{user.firstName} {user.lastName}</h2>
-                <p className="text-muted-foreground">{user.email}</p>
-                <p className="text-sm text-muted-foreground mt-1">
+              <div className="flex-1 text-center sm:text-left">
+                <h2 className="text-lg sm:text-xl font-semibold">{user.firstName} {user.lastName}</h2>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                   Membre depuis {new Date(user.createdAt || '').toLocaleDateString('fr-FR', {
                     month: 'long',
                     year: 'numeric'
                   })}
                 </p>
-                <div className="flex gap-2 mt-3">
+                <div className="flex flex-col sm:flex-row gap-2 mt-3">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={handleAvatarClick}
                     disabled={isUploadingAvatar}
+                    className="text-xs sm:text-sm"
                   >
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-3 sm:h-4 w-3 sm:w-4 mr-2" />
                     Changer la photo
                   </Button>
                   {user.avatar && (
@@ -373,9 +353,9 @@ const ProfilePage = () => {
                       variant="outline"
                       onClick={() => setShowDeleteAvatarDialog(true)}
                       disabled={isUploadingAvatar}
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive text-xs sm:text-sm"
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
+                      <Trash2 className="h-3 sm:h-4 w-3 sm:w-4 mr-2" />
                       Supprimer
                     </Button>
                   )}
@@ -385,32 +365,34 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
 
-        {/* Tabs pour les différentes sections */}
+        {/* Tabs - Responsive */}
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-2 text-xs sm:text-sm">
             <TabsTrigger value="profile">
-              <UserIcon className="h-4 w-4 mr-2" />
-              Informations personnelles
+              <UserIcon className="h-3 sm:h-4 w-3 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Informations personnelles</span>
+              <span className="sm:hidden">Profil</span>
             </TabsTrigger>
             <TabsTrigger value="security">
-              <Lock className="h-4 w-4 mr-2" />
-              Sécurité
+              <Lock className="h-3 sm:h-4 w-3 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Sécurité</span>
+              <span className="sm:hidden">Mot de passe</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Onglet Informations personnelles */}
           <TabsContent value="profile">
             <Card>
-              <CardHeader>
-                <CardTitle>Informations personnelles</CardTitle>
-                <CardDescription>
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-lg sm:text-xl">Informations personnelles</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Mettez à jour vos informations de profil
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">
+                    <Label htmlFor="firstName" className="text-sm">
                       Prénom <span className="text-destructive">*</span>
                     </Label>
                     <div className="relative">
@@ -419,17 +401,17 @@ const ProfilePage = () => {
                         id="firstName"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        className={cn("pl-9", profileErrors.firstName && 'border-destructive')}
+                        className={cn("pl-9 text-sm", profileErrors.firstName && 'border-destructive')}
                         placeholder="John"
                       />
                     </div>
                     {profileErrors.firstName && (
-                      <p className="text-sm text-destructive">{profileErrors.firstName}</p>
+                      <p className="text-xs text-destructive">{profileErrors.firstName}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">
+                    <Label htmlFor="lastName" className="text-sm">
                       Nom <span className="text-destructive">*</span>
                     </Label>
                     <div className="relative">
@@ -438,18 +420,18 @@ const ProfilePage = () => {
                         id="lastName"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        className={cn("pl-9", profileErrors.lastName && 'border-destructive')}
+                        className={cn("pl-9 text-sm", profileErrors.lastName && 'border-destructive')}
                         placeholder="Doe"
                       />
                     </div>
                     {profileErrors.lastName && (
-                      <p className="text-sm text-destructive">{profileErrors.lastName}</p>
+                      <p className="text-xs text-destructive">{profileErrors.lastName}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">
+                  <Label htmlFor="email" className="text-sm">
                     Email <span className="text-destructive">*</span>
                   </Label>
                   <div className="relative">
@@ -459,17 +441,17 @@ const ProfilePage = () => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className={cn("pl-9", profileErrors.email && 'border-destructive')}
+                      className={cn("pl-9 text-sm", profileErrors.email && 'border-destructive')}
                       placeholder="john.doe@example.com"
                     />
                   </div>
                   {profileErrors.email && (
-                    <p className="text-sm text-destructive">{profileErrors.email}</p>
+                    <p className="text-xs text-destructive">{profileErrors.email}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Téléphone</Label>
+                  <Label htmlFor="phone" className="text-sm">Téléphone</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -477,16 +459,16 @@ const ProfilePage = () => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className={cn("pl-9", profileErrors.phone && 'border-destructive')}
+                      className={cn("pl-9 text-sm", profileErrors.phone && 'border-destructive')}
                       placeholder="+261 34 00 000 00"
                     />
                   </div>
                   {profileErrors.phone && (
-                    <p className="text-sm text-destructive">{profileErrors.phone}</p>
+                    <p className="text-xs text-destructive">{profileErrors.phone}</p>
                   )}
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4">
+                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -497,10 +479,15 @@ const ProfilePage = () => {
                       setProfileErrors({});
                     }}
                     disabled={isSaving}
+                    className="w-full sm:w-auto text-sm"
                   >
                     Annuler
                   </Button>
-                  <Button onClick={handleSaveProfile} disabled={isSaving}>
+                  <Button 
+                    onClick={handleSaveProfile} 
+                    disabled={isSaving}
+                    className="w-full sm:w-auto text-sm"
+                  >
                     {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Enregistrer les modifications
                   </Button>
@@ -512,74 +499,47 @@ const ProfilePage = () => {
           {/* Onglet Sécurité */}
           <TabsContent value="security">
             <Card>
-              <CardHeader>
-                <CardTitle>Changer le mot de passe</CardTitle>
-                <CardDescription>
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-lg sm:text-xl">Changer le mot de passe</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Assurez-vous que votre mot de passe contient au moins 6 caractères
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword">
-                    Mot de passe actuel <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="currentPassword"
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      className={cn("pl-9", passwordErrors.currentPassword && 'border-destructive')}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  {passwordErrors.currentPassword && (
-                    <p className="text-sm text-destructive">{passwordErrors.currentPassword}</p>
-                  )}
-                </div>
+                <PasswordInput
+                  id="currentPassword"
+                  label="Mot de passe actuel"
+                  placeholder="••••••••"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  disabled={isSaving}
+                  error={passwordErrors.currentPassword}
+                  showStrength={false}
+                />
 
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">
-                    Nouveau mot de passe <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className={cn("pl-9", passwordErrors.newPassword && 'border-destructive')}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  {passwordErrors.newPassword && (
-                    <p className="text-sm text-destructive">{passwordErrors.newPassword}</p>
-                  )}
-                </div>
+                <PasswordInput
+                  id="newPassword"
+                  label="Nouveau mot de passe"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  disabled={isSaving}
+                  error={passwordErrors.newPassword}
+                  showStrength={true}
+                />
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">
-                    Confirmer le nouveau mot de passe <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={cn("pl-9", passwordErrors.confirmPassword && 'border-destructive')}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  {passwordErrors.confirmPassword && (
-                    <p className="text-sm text-destructive">{passwordErrors.confirmPassword}</p>
-                  )}
-                </div>
+                <PasswordInput
+                  id="confirmPassword"
+                  label="Confirmer le nouveau mot de passe"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isSaving}
+                  error={passwordErrors.confirmPassword}
+                  showStrength={false}
+                />
 
-                <div className="flex justify-end gap-2 pt-4">
+                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -589,10 +549,15 @@ const ProfilePage = () => {
                       setPasswordErrors({});
                     }}
                     disabled={isSaving}
+                    className="w-full sm:w-auto text-sm"
                   >
                     Annuler
                   </Button>
-                  <Button onClick={handleChangePassword} disabled={isSaving}>
+                  <Button 
+                    onClick={handleChangePassword} 
+                    disabled={isSaving}
+                    className="w-full sm:w-auto text-sm"
+                  >
                     {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Changer le mot de passe
                   </Button>
@@ -605,7 +570,7 @@ const ProfilePage = () => {
 
       {/* Dialog de confirmation de suppression d'avatar */}
       <AlertDialog open={showDeleteAvatarDialog} onOpenChange={setShowDeleteAvatarDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="mx-4 sm:mx-0 max-w-sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer la photo de profil</AlertDialogTitle>
             <AlertDialogDescription>

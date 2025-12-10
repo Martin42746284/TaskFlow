@@ -12,6 +12,8 @@ import {
 } from './ui/dropdown-menu';
 import { LayoutGrid, FolderKanban, LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ThemeToggle } from './ThemeToggle';
+import { MobileMenu } from './MobileMenu';
 
 export function Header() {
   const navigate = useNavigate();
@@ -21,7 +23,6 @@ export function Header() {
 
   useEffect(() => {
     const loadUser = async () => {
-      // Ne charger le profil que si l'utilisateur est authentifié
       if (!authUtils.isAuthenticated()) {
         setCurrentUser(null);
         return;
@@ -37,10 +38,9 @@ export function Header() {
     };
     loadUser();
 
-    // Écouter l'événement personnalisé pour recharger le profil
     const handleProfileUpdate = () => {
       loadUser();
-      setAvatarTimestamp(Date.now()); // Mettre à jour le timestamp
+      setAvatarTimestamp(Date.now());
     };
 
     window.addEventListener('profileUpdated', handleProfileUpdate);
@@ -63,17 +63,17 @@ export function Header() {
   if (!currentUser) {
     return (
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
+        <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
               <FolderKanban className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold gradient-text bg-gradient-to-r from-primary to-primary/70">
+            <span className="hidden sm:inline text-lg font-semibold gradient-text bg-gradient-to-r from-primary to-primary/70">
               TaskFlow
             </span>
           </Link>
 
-          <nav className="flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-6">
             <Link
               to="/login"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -86,7 +86,13 @@ export function Header() {
             >
               S'inscrire
             </Link>
+            <ThemeToggle />
           </nav>
+
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+            <MobileMenu isAuthenticated={false} />
+          </div>
         </div>
       </header>
     );
@@ -94,24 +100,23 @@ export function Header() {
 
   const initials = `${currentUser.firstName[0]}${currentUser.lastName[0]}`.toUpperCase();
 
-  // Ajouter le timestamp à l'URL de l'avatar
   const avatarUrl = currentUser.avatar
     ? `${getAvatarUrl(currentUser.avatar)}?t=${avatarTimestamp}`
     : undefined;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+      <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
+        <Link to="/" className="flex items-center gap-2 flex-shrink-0">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
             <FolderKanban className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold gradient-text bg-gradient-to-r from-primary to-primary/70">
+          <span className="hidden sm:inline text-lg font-semibold gradient-text bg-gradient-to-r from-primary to-primary/70">
             TaskFlow
           </span>
         </Link>
 
-        <nav className="flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-6">
           <Link
             to="/"
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -121,56 +126,62 @@ export function Header() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary transition-all">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage
-                    src={avatarUrl}
-                    alt={`${currentUser.firstName} ${currentUser.lastName}`}
-                  />
-                  <AvatarFallback className="text-sm">{initials}</AvatarFallback>
-                </Avatar>
-                <div className="text-left hidden sm:block">
-                  <p className="text-sm font-medium leading-none">
-                    {currentUser.firstName} {currentUser.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {currentUser.email}
-                  </p>
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    {currentUser.firstName} {currentUser.lastName}
-                  </p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {currentUser.email}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
-                  <UserIcon className="h-4 w-4" />
-                  <span>Mon profil</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Se déconnecter</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
+          <div className="hidden md:block">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary transition-all">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage
+                      src={avatarUrl}
+                      alt={`${currentUser.firstName} ${currentUser.lastName}`}
+                    />
+                    <AvatarFallback className="text-sm">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-left hidden sm:block">
+                    <p className="text-sm font-medium leading-none">
+                      {currentUser.firstName} {currentUser.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {currentUser.email}
+                    </p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {currentUser.firstName} {currentUser.lastName}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {currentUser.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                    <UserIcon className="h-4 w-4" />
+                    <span>Mon profil</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Se déconnecter</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="md:hidden">
+            <MobileMenu isAuthenticated={true} onLogout={handleLogout} />
+          </div>
         </div>
       </div>
     </header>
