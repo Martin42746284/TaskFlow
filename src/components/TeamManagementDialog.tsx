@@ -157,11 +157,11 @@ export const TeamManagementDialog = ({
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
                 Note : Pour ajouter des membres, vous devez d'abord créer leurs comptes utilisateurs.
-                Entrez les IDs des utilisateurs à ajouter.
+                Entrez l'email des utilisateurs à ajouter.
               </p>
-              
+
               <Input
-                placeholder="ID utilisateur (ex: 675b1234...)"
+                placeholder="exemple@email.com"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -178,10 +178,38 @@ export const TeamManagementDialog = ({
                 
                 <Button
                   onClick={() => {
-                    if (searchQuery.trim()) {
-                      setSelectedUserIds([...selectedUserIds, searchQuery.trim()]);
-                      setSearchQuery('');
+                    const email = searchQuery.trim().toLowerCase();
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                    if (!email) {
+                      toast({
+                        title: 'Erreur',
+                        description: 'Veuillez entrer un email',
+                        variant: 'destructive',
+                      });
+                      return;
                     }
+
+                    if (!emailRegex.test(email)) {
+                      toast({
+                        title: 'Erreur',
+                        description: 'Veuillez entrer un email valide',
+                        variant: 'destructive',
+                      });
+                      return;
+                    }
+
+                    if (selectedUserIds.includes(email)) {
+                      toast({
+                        title: 'Erreur',
+                        description: 'Cet email est déjà ajouté',
+                        variant: 'destructive',
+                      });
+                      return;
+                    }
+
+                    setSelectedUserIds([...selectedUserIds, email]);
+                    setSearchQuery('');
                   }}
                   variant="outline"
                 >
@@ -192,11 +220,11 @@ export const TeamManagementDialog = ({
 
               {selectedUserIds.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium">IDs sélectionnés :</p>
+                  <p className="text-xs font-medium">Emails sélectionnés :</p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedUserIds.map((id, index) => (
+                    {selectedUserIds.map((email, index) => (
                       <Badge key={index} variant="secondary" className="gap-1">
-                        {id.substring(0, 8)}...
+                        {email}
                         <button
                           onClick={() => setSelectedUserIds(selectedUserIds.filter((_, i) => i !== index))}
                           className="ml-1 hover:text-destructive"

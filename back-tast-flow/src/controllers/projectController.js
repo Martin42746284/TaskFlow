@@ -104,7 +104,8 @@ exports.deleteProject = async (req, res) => {
 // Ajouter des membres (admin ou équipe)
 exports.addMembers = async (req, res) => {
   try {
-    const { admins, team } = req.body; // arrays d'IDs utilisateurs
+    const { admins, team } = req.body; // arrays d'emails utilisateurs
+    const User = require('../models/User');
 
     const project = await Project.findById(req.params.id);
     if (!project) {
@@ -116,17 +117,66 @@ exports.addMembers = async (req, res) => {
       return res.status(403).json({ message: 'Accès refusé' });
     }
 
-    if (admins) {
-      project.admins = [...new Set([...project.admins, ...admins])];
+    // Fonction pour convertir les emails en IDs utilisateur
+    const convertEmailsToUserIds = async (emails) => {
+      if (!emails || !Array.isArray(emails)) return [];
+
+      const userIds = [];
+      const notFoundEmails = [];
+
+      for (const email of emails) {
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        if (user) {
+          userIds.push(user._id);
+        } else {
+          notFoundEmails.push(email);
+        }
+      }
+
+      return { userIds, notFoundEmails };
+    };
+
+    let notFoundEmails = [];
+    let adminUserIds = [];
+    let teamUserIds = [];
+
+    if (admins && Array.isArray(admins)) {
+      const result = await convertEmailsToUserIds(admins);
+      adminUserIds = result.userIds;
+      notFoundEmails = notFoundEmails.concat(result.notFoundEmails);
     }
 
-    if (team) {
-      project.team = [...new Set([...project.team, ...team])];
+    if (team && Array.isArray(team)) {
+      const result = await convertEmailsToUserIds(team);
+      teamUserIds = result.userIds;
+      notFoundEmails = notFoundEmails.concat(result.notFoundEmails);
+    }
+
+    // Si certains emails n'ont pas été trouvés, retourner une erreur avec les détails
+    if (notFoundEmails.length > 0) {
+      return res.status(404).json({
+        message: `Utilisateur(s) non trouvé(s): ${notFoundEmails.join(', ')}`,
+        notFoundEmails
+      });
+    }
+
+    // Ajouter les IDs uniques aux listes du projet
+    if (adminUserIds.length > 0) {
+      const adminIdStrings = adminUserIds.map(id => id.toString());
+      project.admins = [...new Set([...project.admins.map(id => id.toString()), ...adminIdStrings])];
+    }
+
+    if (teamUserIds.length > 0) {
+      const teamIdStrings = teamUserIds.map(id => id.toString());
+      project.team = [...new Set([...project.team.map(id => id.toString()), ...teamIdStrings])];
     }
 
     await project.save();
 
-    res.json({ message: 'Membres ajoutés', project });
+    // Recharger et populer pour retourner les données complètes
+    const updatedProject = await project.populate('owner admins team', 'firstName lastName email avatar');
+
+    res.json({ message: 'Membres ajoutés', project: updatedProject });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
