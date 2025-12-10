@@ -61,24 +61,20 @@ const ProjectPage = () => {
 
       if (currentUserId === ownerId) {
         setUserRole('owner');
-        console.log('User role: OWNER');
-      } else if (Array.isArray(data.admins) && 
+      } else if (Array.isArray(data.admins) &&
                  data.admins.some((admin: any) => {
                    const adminId = typeof admin === 'object' ? (admin._id || admin.id) : admin;
                    return adminId === currentUserId;
                  })) {
         setUserRole('admin');
-        console.log('User role: ADMIN');
-      } else if (Array.isArray(data.team) && 
+      } else if (Array.isArray(data.team) &&
                  data.team.some((member: any) => {
                    const memberId = typeof member === 'object' ? (member._id || member.id) : member;
                    return memberId === currentUserId;
                  })) {
         setUserRole('team');
-        console.log('User role: TEAM');
       } else {
         setUserRole(null);
-        console.log('User role: NONE');
       }
     } catch (error: any) {
       toast({

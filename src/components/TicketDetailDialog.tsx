@@ -78,16 +78,12 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
           : ticketData.project;
         
         const projectData = await projectService.getById(projectId);
-        
-        console.log('=== DEBUG PROJET FRONTEND ===');
-        console.log('Project data:', projectData);
-        
+
         // Helper function pour normaliser un membre
         const normalizeMember = (member: any): User | null => {
           if (!member || typeof member !== 'object') return null;
           const userId = member._id || member.id;
           if (!userId) {
-            console.warn('Member without ID:', member);
             return null;
           }
           return {
@@ -137,8 +133,6 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
         }
         
         const allMembers = Array.from(membersMap.values());
-        console.log('Total members loaded:', allMembers.length);
-        console.log('All normalized members:', allMembers);
         setProjectMembers(allMembers);
       }
     } catch (error: any) {
@@ -257,14 +251,8 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
   // Assigner un utilisateur
   const handleAssign = async (userId: string) => {
     if (!ticket || userId === 'placeholder' || !userId) {
-      console.log('❌ Invalid userId:', userId);
       return;
     }
-
-    console.log('=== DEBUG ASSIGNATION FRONTEND ===');
-    console.log('Trying to assign user ID:', userId);
-    console.log('User ID type:', typeof userId);
-    console.log('Ticket ID:', ticket._id);
 
     try {
       await ticketService.assign(ticket._id, userId);
@@ -274,8 +262,6 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
       });
       await loadTicket();
     } catch (error: any) {
-      console.error('❌ Assignation error:', error);
-      console.error('Error response:', error.response?.data);
       const errorMessage = error.response?.data?.message || 'Impossible d\'assigner l\'utilisateur';
       toast({
         title: 'Erreur',
@@ -612,8 +598,6 @@ export function TicketDetailDialog({ ticketId, onClose }: TicketDetailDialogProp
                   
                   // Vérifier si l'utilisateur connecté est l'auteur du commentaire
                   const isAuthor = currentUserId === authorId || currentUserId === author.id || currentUserId === author._id;
-                  
-                  console.log('Is Author:', isAuthor);
 
                   return (
                     <div key={comment._id} className="flex gap-3">

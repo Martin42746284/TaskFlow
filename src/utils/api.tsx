@@ -175,8 +175,6 @@ export const getCurrentUserId = (): string | null => {
   
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    console.log('Token payload:', payload); // Debug
-    // Le backend utilise 'userId' dans le token
     return payload.userId || payload.id || payload._id;
   } catch (error) {
     console.error('Erreur lors du décodage du token:', error);
@@ -259,14 +257,9 @@ export const userService = {
 // ===== Helper pour obtenir l'URL complète de l'avatar =====
 export const getAvatarUrl = (avatar?: string): string | undefined => {
   if (!avatar) return undefined;
-  if (avatar.startsWith('http')) return avatar; // URL complète déjà fournie
-  
-  // Construire l'URL complète avec STATIC_URL (sans /api)
-  const url = `${STATIC_URL}${avatar}`;
-  console.log('getAvatarUrl - Input:', avatar);
-  console.log('getAvatarUrl - STATIC_URL:', STATIC_URL);
-  console.log('getAvatarUrl - Output:', url);
-  return url;
+  if (avatar.startsWith('http')) return avatar;
+
+  return `${STATIC_URL}${avatar}`;
 };
 
 // ===== Services Project =====
